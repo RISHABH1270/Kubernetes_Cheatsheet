@@ -31,3 +31,11 @@ Displays all nodes in the cluster and their statuses.
 ```bash
 kubectl get nodes
 ```
+
+## 📦 Get Namespaces
+
+Get a list of namespaces in the cluster:
+```bash
+kubectl get namespaces
+```
+
