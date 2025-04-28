@@ -39,3 +39,38 @@ Get a list of namespaces in the cluster:
 kubectl get namespaces
 ```
 
+## 🧩 Create a Pod on a Worker Node (Imperative and Declarative)
+
+Imperative Way (One-liner Command)
+```bash
+kubectl run my-pod --image=nginx --overrides='
+{
+  "apiVersion": "v1",
+  "spec": {
+    "nodeSelector": {
+      "kubernetes.io/hostname": "multinode-cluster-m02"
+    }
+  }
+}' --restart=Never
+```
+
+📄 Declarative Way Using YAML - Create a file pod.yaml
+```bash
+vim pod.yaml
+```
+```bash
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod2
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+  nodeSelector:
+    kubernetes.io/hostname: multinode-cluster-m02
+```
+```bash
+kubectl apply -f pod.yaml
+```
+
