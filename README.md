@@ -39,9 +39,21 @@ Get a list of namespaces in the cluster:
 kubectl get namespaces
 ```
 
+## 📚 To see the API documentation
+
+```bash
+kubectl explain pod
+kubectl explain pod.spec
+kubectl explain pod.metadata
+kubectl explain pod.status
+```
+
 ## 🧩 Create a Pod on a Worker Node (Imperative and Declarative)
 
 Imperative Way (One-liner Command)
+```bash
+kubectl run nginx-pod --image=nginx:latest
+```
 ```bash
 kubectl run my-pod --image=nginx --overrides='
 {
@@ -67,10 +79,25 @@ spec:
   containers:
     - name: nginx
       image: nginx
+      ports:
+        - containerPort: 8080
   nodeSelector:
     kubernetes.io/hostname: multinode-cluster-m02
 ```
 ```bash
+kubectl create -f pod.yaml
 kubectl apply -f pod.yaml
+```
+
+## 🔍 Describe a Pod
+
+```bash
+kubectl describe pod my-pod
+```
+
+## 🗑️ Delete a Pod
+
+```bash
+kubectl delete pod my-pod2
 ```
 
