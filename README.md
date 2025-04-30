@@ -101,3 +101,69 @@ kubectl describe pod my-pod
 kubectl delete pod my-pod2
 ```
 
+## 🛠️ Debugging a Pod
+
+If the image within the container inside the pod has been altered or tampered:
+```bash
+  containers:
+    - name: nginx
+      image: nginx123
+```
+In this case, the pod won't be ready, and its status will show "ImagePullBackOff"
+```bash
+kubectl describe pod my-pod2
+```
+You'll find the latest error message in the Events section. 
+           
+Potential reasons:        
+Registry unavailable         
+Repository unavailable        
+Image unavailable       
+Authorization required       
+Authorization failed      
+
+To directly edit the configuration of an existing Resources in the cluster: 
+```bash
+kubectl edit pod my-pod2
+```
+
+## 🔐➡️ Get inside a Pod
+```bash
+kubectl exec -it my-pod2 -- sh
+```
+For multiple containers running inside a pod:
+```bash
+kubectl exec -it my-pod2 -c nginx -- bash
+```
+```bash
+pwd
+```
+
+## ⚙️ Automatic creation of YAML
+```bash
+kubectl run nginx --image=nginx --dry-run=client
+```
+```bash
+kubectl run nginx --image=nginx --dry-run=client -o yaml > pod-new.yaml
+kubectl run nginx --image=nginx --dry-run=client -o json > pod-new.json
+```   
+It will create a yaml file and later you can make change in this as per your requirement:
+```bash
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Always
+status: {}
+```
+
+
