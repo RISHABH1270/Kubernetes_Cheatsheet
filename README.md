@@ -39,6 +39,14 @@ Get a list of namespaces in the cluster:
 kubectl get namespaces
 ```
 
+## 📋 Get all the resources in a Kubernetes cluster
+```bash
+kubectl get all
+```
+```bash
+kubectl get all --all-namespaces
+```
+
 ## 📚 To see the API documentation
 
 ```bash
@@ -92,7 +100,19 @@ kubectl apply -f pod.yaml
 ## 🔍 Describe a Pod
 
 ```bash
+kubectl get pods
+```
+Now to check on whick worker node the pod is running:
+```bash
+kubectl get pods -o wide
+```
+Getting every information about a specific pods:
+```bash
 kubectl describe pod my-pod
+```
+Getting labels associated with a pod:
+```bash
+kubectl get pods my-pod2 --show-labels
 ```
 
 ## 🗑️ Delete a Pod
@@ -166,4 +186,98 @@ spec:
 status: {}
 ```
 
+## 📦📦📦 Kubernetes ReplicaSet 
 
+ReplicationController are legacy one and with ReplicaSet you can target the existing pods with labels and selectors.         
+Manages multiple replicas of an NGINX pod:
+```bash
+apiVersion: apps/v1
+kind: ReplicaSet
+metadata:
+  name: nginx-replicaset
+  labels:
+    app: nginx
+spec:
+  replicas: 3  # Number of pod replicas
+  selector:
+    matchLabels:
+      app: nginx
+  template:  # Pod template
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 8080
+```
+```bash
+kubectl apply -f rs.yaml
+```
+Get all the ReplicaSet:
+```bash
+kubectl get rs
+```
+Scale the ReplicaSet using Imperative way:
+```bash
+kubectl scale --replicas=5 nginx-replicaset
+```
+
+## 📦📦📦🛠️ Kubernetes Deployment:
+
+Deployment --> ReplicaSet --> Pods    
+         
+Supports:      
+Rolling updates (e.g., nginx:1.1 → nginx:1.2)    
+Zero downtime       
+Rollback if update fails      
+Automates safe transitions between versions.      
+ReplicaSet = raw pod management      
+Deployment = smart version-controlled lifecycle manager   
+```bash
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest  # ⬅️ Just change version here
+        ports:
+        - containerPort: 8080
+```
+One new pod with 1.2 is created (maxSurge: 1)           
+One old pod with 1.1 is removed (maxUnavailable: 1)
+
+```bash
+kubectl apply -f dp.yaml
+```
+
+## 📜 Check Rollout History
+
+```bash
+kubectl rollout history deployment/nginx-deployment
+```
+
+## 🔁 Rollback a Deployment
+
+```bash
+kubectl rollout undo deployment/nginx-deployment
+
+```
