@@ -236,7 +236,7 @@ Rollback if update fails
 Automates safe transitions between versions.      
 ReplicaSet = raw pod management      
 Deployment = smart version-controlled lifecycle manager   
-```bash
+```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -279,5 +279,32 @@ kubectl rollout history deployment/nginx-deployment
 
 ```bash
 kubectl rollout undo deployment/nginx-deployment
+```
 
+## 🌍 Service in Kubernetes
+
+Services exposes your app to outer world and it provides you a consistent endpoint (IP + DNS name).      
+A Service selects pods using labels and then forwards traffic to them.      
+          
+There are 4 types of Services:
+- NodePort(Access the application through the port exposed by the node and then internal routing to targeted port happens)
+- ClusterIP(For Internal access)
+- LoadBalancer(To access the application on a domain name or IP address without using the port number)
+- External (To use an external DNS for routing)
+
+#### Sample YAML for Nodeport
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-nodeport-service
+spec:
+  type: NodePort
+  selector:
+    app: nginx
+  ports:
+    - protocol: TCP
+      nodePort: 30080     # External port exposed on each node (30000-32767)
+      port: 80            # Port exposed by the service inside the cluster
+      targetPort: 80      # Port on the pod/container  
 ```
