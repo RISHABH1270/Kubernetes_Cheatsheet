@@ -3,7 +3,14 @@
 This is a simple and beginner-friendly cheat sheet of commands I’m using while practicing Kubernetes locally with Minikube.
 I will keep updating this with more commands and explanations — Coming Soon! 🚀
 
-## 🚀 Start Minikube
+## 🚀 Start Minikube      
+
+Minikube is local Kubernetes, focusing on making it easy to learn and develop for Kubernetes. All you need is Docker (or similarly compatible) container.  
+        
+To install the latest minikube stable release on x86-64 macOS using Homebrew:       
+```bash
+brew install minikube
+```
 
 Starts a single-node Minikube cluster locally.
 ```bash
@@ -16,7 +23,7 @@ minikube start --nodes 3 -p multinode-cluster
 
 ## ⚙️ Managing Contexts (Clusters)
 
-Lists all available contexts and highlights the current one with a *.
+Lists all available contexts and manage access to multiple clusters and highlights the current one with a *.
 ```bash
 kubectl config get-contexts
 ```
@@ -58,11 +65,16 @@ kubectl explain pod.status
 
 ## 🧩 Create a Pod on a Worker Node (Imperative and Declarative)
 
+A Pod is the smallest deployable unit in Kubernetes. It can consists one or more containers.       
+
 Imperative Way (One-liner Command)
 ```bash
 kubectl run nginx-pod --image=nginx:latest
 ```
-```bash
+
+Create pod on a specific node:
+
+```yaml
 kubectl run my-pod --image=nginx --overrides='
 {
   "apiVersion": "v1",
@@ -78,11 +90,11 @@ kubectl run my-pod --image=nginx --overrides='
 ```bash
 vim pod.yaml
 ```
-```bash
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: my-pod2
+  name: my-pod
 spec:
   containers:
     - name: nginx
@@ -112,13 +124,13 @@ kubectl describe pod my-pod
 ```
 Getting labels associated with a pod:
 ```bash
-kubectl get pods my-pod2 --show-labels
+kubectl get pods my-pod --show-labels
 ```
 
 ## 🗑️ Delete a Pod
 
 ```bash
-kubectl delete pod my-pod2
+kubectl delete pod my-pod
 ```
 
 ## 🛠️ Debugging a Pod
@@ -131,7 +143,7 @@ If the image within the container inside the pod has been altered or tampered:
 ```
 In this case, the pod won't be ready, and its status will show "ImagePullBackOff"
 ```bash
-kubectl describe pod my-pod2
+kubectl describe pod my-pod
 ```
 You'll find the latest error message in the Events section. 
            
@@ -144,22 +156,25 @@ Authorization failed
 
 To directly edit the configuration of an existing Resources in the cluster: 
 ```bash
-kubectl edit pod my-pod2
+kubectl edit pod my-pod
 ```
 
 ## 🔐➡️ Get inside a Pod
 ```bash
-kubectl exec -it my-pod2 -- sh
+kubectl exec -it my-pod -- sh
 ```
 For multiple containers running inside a pod:
 ```bash
-kubectl exec -it my-pod2 -c nginx -- bash
+kubectl exec -it my-pod -c nginx -- bash
 ```
 ```bash
 pwd
 ```
 
 ## ⚙️ Automatic creation of YAML
+
+Kubernetes supports both YAML and JSON for defining configuration files like Pods, Deployments, Services, etc.       
+    
 ```bash
 kubectl run nginx --image=nginx --dry-run=client
 ```
@@ -168,7 +183,7 @@ kubectl run nginx --image=nginx --dry-run=client -o yaml > pod-new.yaml
 kubectl run nginx --image=nginx --dry-run=client -o json > pod-new.json
 ```   
 It will create a yaml file and later you can make change in this as per your requirement:
-```bash
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
@@ -190,7 +205,7 @@ status: {}
 
 ReplicationController are legacy one and with ReplicaSet you can target the existing pods with labels and selectors.         
 Manages multiple replicas of an NGINX pod:
-```bash
+```yaml
 apiVersion: apps/v1
 kind: ReplicaSet
 metadata:
@@ -227,7 +242,7 @@ kubectl scale --replicas=5 nginx-replicaset
 
 ## 📦📦📦🛠️ Kubernetes Deployment:
 
-Deployment --> ReplicaSet --> Pods    
+Pods --> ReplicationController --> ReplicaSet --> Deployment       
          
 Supports:      
 Rolling updates (e.g., nginx:1.1 → nginx:1.2)    
@@ -235,7 +250,8 @@ Zero downtime
 Rollback if update fails      
 Automates safe transitions between versions.      
 ReplicaSet = raw pod management      
-Deployment = smart version-controlled lifecycle manager   
+Deployment = smart version-controlled lifecycle manager       
+              
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -286,12 +302,10 @@ kubectl rollout undo deployment/nginx-deployment
 Services exposes your app to outer world and it provides you a consistent endpoint (IP + DNS name).      
 A Service selects pods using labels and then forwards traffic to them.      
           
-There are 4 types of Services:
-- NodePort(Access the application through the port exposed by the node and then internal routing to targeted port happens)
-- ClusterIP(For Internal access)
-- LoadBalancer(To access the application on a domain name or IP address without using the port number)
-- External (To use an external DNS for routing)
+There are 4 types of Services:     
 
+- NodePort (Access the application through the port exposed by the node and then internal routing to targeted port happens)
+  
 #### Sample YAML for Nodeport
 ```yaml
 apiVersion: v1
@@ -308,3 +322,8 @@ spec:
       port: 80            # Port exposed by the service inside the cluster
       targetPort: 80      # Port on the pod/container  
 ```
+
+- ClusterIP(For Internal access)
+- LoadBalancer(To access the application on a domain name or IP address without using the port number)
+- External (To use an external DNS for routing)
+
