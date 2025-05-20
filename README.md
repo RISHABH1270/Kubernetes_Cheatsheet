@@ -32,7 +32,7 @@ Switches your active Kubernetes context to the multinode-cluster profile.
 kubectl config use-context multinode-cluster
 ```
 
-## 🖥️ Checking Cluster Nodes
+## 🖥️ Get all the Nodes in the cluster
 
 Displays all nodes in the cluster and their statuses.
 ```bash
