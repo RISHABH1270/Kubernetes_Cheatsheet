@@ -1,16 +1,17 @@
 # Kubernetes Hands-on with Minikube — Cheatsheet
 
-This is a simple and beginner-friendly cheat sheet of commands I’m using while practicing Kubernetes locally with Minikube.
-I will keep updating this with more commands and explanations — Coming Soon! 🚀
+This is a concise, beginner-oriented reference guide containing essential Kubernetes commands I’m using while practicing locally with Minikube. I will continue to expand it with additional commands and detailed explanations — updates coming soon! 🚀
 
 ## 🚀 Start Minikube      
 
-Minikube is local Kubernetes, focusing on making it easy to learn and develop for Kubernetes. All you need is Docker (or similarly compatible) container.  
+Minikube is a local Kubernetes environment designed to simplify learning and development. It allows you to run a Kubernetes cluster on your local machine using Docker or a compatible container runtime.
         
 To install the latest minikube stable release on x86-64 macOS using Homebrew:       
 ```bash
 brew install minikube
 ```
+
+For more details, refer to the https://minikube.sigs.k8s.io/docs/start/?arch=%2Fmacos%2Farm64%2Fstable%2Fbinary+download
 
 Starts a single-node Minikube cluster locally.
 ```bash
