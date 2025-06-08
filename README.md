@@ -4,6 +4,27 @@ This is a concise, beginner-oriented reference guide containing essential Kubern
 
 Kubernetes takes care of all the concerns like container networking, resource management, security, high availability, fault tolerance, service discovery, scalability, load balancing, and orchestration—providing an enterprise-level solution for managing containerized applications at scale.
 
+In Kubernetes, the cluster architecture is divided into two main parts:
+
+### 🧠 Master Node (Control Plane)
+The master node manages the cluster—it makes global decisions, like scheduling and scaling.
+
+Key Components:      
+kube-apiserver - The front-end of the control plane; receives all REST requests from users, CLI, or controllers.     
+etcd - A key-value store for all cluster data; acts as the source of truth.     
+kube-scheduler - Watches for unscheduled pods and assigns them to suitable worker nodes based on resources, policies, etc.     
+kube-controller-managern - Runs controllers (like node, replication, endpoints) that ensure the cluster’s desired state is maintained.    
+cloud-controller-manager - Handles cloud-specific logic (e.g., provisioning load balancers, managing storage in AWS, GCP, etc.).     
+
+### ⚙️ Worker Node
+The worker node actually runs the containerized applications.
+
+Key Components:      
+kubelet - Agent that runs on each worker node; ensures containers are running as expected by talking to the control plane.      
+kube-proxy - Manages networking rules (NAT, IP forwarding) to allow communication between pods and services.         
+Container Runtime - Software that actually runs the containers, such as containerd, Docker, or CRI-O.     
+Pods - The smallest deployable units in Kubernetes, running your actual containers.     
+
 ## 🚀 Start Minikube      
 
 Minikube is a local Kubernetes environment designed to simplify learning and development. It allows you to run a Kubernetes cluster on your local machine using Docker or a compatible container runtime.
