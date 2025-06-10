@@ -13,7 +13,7 @@ Key Components:
 kube-apiserver - The front-end of the control plane; receives all REST requests from users, CLI, or controllers.     
 etcd - A key-value store for all cluster data; acts as the source of truth.     
 kube-scheduler - Watches for unscheduled pods and assigns them to suitable worker nodes based on resources, policies, etc.     
-kube-controller-managern - Runs controllers (like node, replication, endpoints) that ensure the cluster’s desired state is maintained.    
+kube-controller-manager - Runs controllers (like node, replication, endpoints) that ensure the cluster’s desired state is maintained.    
 cloud-controller-manager - Handles cloud-specific logic (e.g., provisioning load balancers, managing storage in AWS, GCP, etc.).     
 
 ### ⚙️ Worker Node
@@ -40,10 +40,20 @@ Starts a single-node Minikube cluster locally.
 ```bash
 minikube start
 ```
+
 Starts a multi-node Minikube cluster (3 nodes) with a custom profile name multinode-cluster.
 ```bash
 minikube start --nodes 3 -p multinode-cluster
 ```
+
+Access the Kubernetes dashboard running within the minikube cluster:
+```bash
+minikube dashboard
+```
+
+Before going further, make sure you have installed kubectl, the command-line tool for interacting with Kubernetes clusters.
+If not, install it from the official documentation here:      
+👉 Install kubectl - https://kubernetes.io/docs/tasks/tools/
 
 ## ⚙️ Managing Contexts (Clusters)
 
@@ -51,14 +61,30 @@ Lists all available contexts and manage access to multiple clusters and highligh
 ```bash
 kubectl config get-contexts
 ```
-Switches your active Kubernetes context to the multinode-cluster profile.
+
+Switches your active Kubernetes context to the minikube.
 ```bash
-kubectl config use-context multinode-cluster
+kubectl config use-context minikube
+```
+
+Stop your local cluster:
+```bash
+minikube stop
+```
+
+Delete your local cluster:
+```bash
+minikube delete
+```
+
+Delete all local clusters and profiles
+```bash
+minikube delete --all
 ```
 
 ## 🖥️ Get all the Nodes in the cluster
 
-Displays all nodes in the cluster and their statuses.
+Displays all nodes in the cluster and their status.
 ```bash
 kubectl get nodes
 ```
@@ -70,12 +96,21 @@ Get a list of namespaces in the cluster:
 kubectl get namespaces
 ```
 
-## 📋 Get all the resources in a Kubernetes cluster
+## 📋 Get Resources in a Kubernetes cluster
+
+Get all resources in the default namespace:
 ```bash
 kubectl get all
 ```
+
+Get all resources in a specific namespace (e.g., kube-system):
 ```bash
-kubectl get all --all-namespaces
+kubectl get all -n kube-system
+```
+
+Get all resources in all namespaces:
+```bash
+kubectl get all -A
 ```
 
 ## 📚 To see the API documentation
@@ -97,7 +132,6 @@ kubectl run nginx-pod --image=nginx:latest
 ```
 
 Create pod on a specific node:
-
 ```yaml
 kubectl run my-pod --image=nginx --overrides='
 {
@@ -130,6 +164,8 @@ spec:
 ```
 ```bash
 kubectl create -f pod.yaml
+```
+```bash
 kubectl apply -f pod.yaml
 ```
 
@@ -160,12 +196,12 @@ kubectl delete pod my-pod
 ## 🛠️ Debugging a Pod
 
 If the image within the container inside the pod has been altered or tampered:
-```bash
+```yaml
   containers:
     - name: nginx
       image: nginx123
 ```
-In this case, the pod won't be ready, and its status will show "ImagePullBackOff"
+In this case, the pod won't be ready, and its status will show "ImagePullBackOff" or "ErrImage"
 ```bash
 kubectl describe pod my-pod
 ```
@@ -184,28 +220,35 @@ kubectl edit pod my-pod
 ```
 
 ## 🔐➡️ Get inside a Pod
+
+Accessing a Pod's shell is similar to how you exec into a Docker container.     
+
 ```bash
 kubectl exec -it my-pod -- sh
 ```
+
 For multiple containers running inside a pod:
 ```bash
 kubectl exec -it my-pod -c nginx -- bash
 ```
+
 ```bash
 pwd
 ```
 
 ## ⚙️ Automatic creation of YAML
 
-Kubernetes supports both YAML and JSON for defining configuration files like Pods, Deployments, Services, etc.       
-    
+Kubernetes supports both YAML and JSON for defining configuration files for Pods, Deployments, Services, etc.       
 ```bash
 kubectl run nginx --image=nginx --dry-run=client
 ```
+
+Redirects the command output and saves it into a new file - 
 ```bash
 kubectl run nginx --image=nginx --dry-run=client -o yaml > pod-new.yaml
 kubectl run nginx --image=nginx --dry-run=client -o json > pod-new.json
-```   
+```
+
 It will create a yaml file and later you can make change in this as per your requirement:
 ```yaml
 apiVersion: v1
@@ -227,7 +270,8 @@ status: {}
 
 ## 📦📦📦 Kubernetes ReplicaSet 
 
-ReplicationController are legacy one and with ReplicaSet you can target the existing pods with labels and selectors.         
+ReplicationController are legacy one and ReplicaSet are new by this you can target and manage the existing pods with labels and selectors. The ReplicaController or ReplicaSet ensures that the desired number of Pods are always running at any given time. It continuously monitors the health of each Pod and handles incoming requests by using load balancing logic to route them to healthy Pods ensures high availability.         
+
 Manages multiple replicas of an NGINX pod:
 ```yaml
 apiVersion: apps/v1
