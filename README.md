@@ -208,12 +208,12 @@ kubectl describe pod my-pod
 ```
 You'll find the latest error message in the Events section. 
            
-Potential reasons:        
-Registry unavailable         
-Repository unavailable        
-Image unavailable       
-Authorization required       
-Authorization failed      
+- Potential reasons:        
+- Registry unavailable         
+- Repository unavailable        
+- Image unavailable       
+- Authorization required       
+- Authorization failed      
 
 To directly edit the configuration of an existing Resources in the cluster: 
 ```bash
