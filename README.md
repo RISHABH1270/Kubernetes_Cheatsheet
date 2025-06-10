@@ -52,7 +52,8 @@ minikube dashboard
 ```
 
 Before going further, make sure you have installed kubectl, the command-line tool for interacting with Kubernetes clusters.
-If not, install it from the official documentation here:      
+If not, install it from the official documentation here:     
+   
 👉 Install kubectl - https://kubernetes.io/docs/tasks/tools/
 
 ## ⚙️ Managing Contexts (Clusters)
