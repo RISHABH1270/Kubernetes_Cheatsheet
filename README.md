@@ -269,9 +269,13 @@ spec:
 status: {}
 ```
 
-## 📦📦📦 Kubernetes ReplicaSet 
+## 📦📦📦 Kubernetes ReplicaSet    
 
-ReplicationController are legacy one and ReplicaSet are new by this you can target and manage the existing pods with labels and selectors. The ReplicaController or ReplicaSet ensures that the desired number of Pods are always running at any given time. It continuously monitors the health of each Pod and handles incoming requests by using load balancing logic to route them to healthy Pods ensures high availability.         
+ReplicationController is a legacy Kubernetes resource. The modern and recommended alternative is ReplicaSet by this you can target and manage the existing pods with labels and selectors.     
+
+- A ReplicaSet ensures that the desired number of Pods are always running.    
+- It monitors the health of each Pod continuously.    
+- When handling traffic, it uses load balancing to route requests to healthy Pods, ensuring high availability.     
 
 Manages multiple replicas of an NGINX pod:
 ```yaml
