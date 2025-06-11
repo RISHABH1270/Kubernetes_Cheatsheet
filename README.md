@@ -416,7 +416,9 @@ kubectl get nodes -o wide
 🧭 Step-by-Step Traffic Flow -    
 
 - Client Initiates Request - A user (browser, curl, etc.) makes a request to any Kubernetes node's external IP on port 30080.        
-http://node-ip:30080
+```bash
+http://<node-ip>:30080
+```
 - NodePort Receives the Request - The Kubernetes NodePort service listens on port 30080 on every worker node, even if the Pod isn't running there.
 - Service Layer Forwards the Request - The request is routed internally to port 80 of the Service, which is a stable virtual IP inside the cluster.
 - Service Uses Selector to Find Pods - The Service checks for all Pods with the label is app: nginx
@@ -461,8 +463,57 @@ Describe the services:
 kubectl describe svc backend-service
 ```
 
-#### Endpoints :- An endpoint is the IP address of the Pod that the Service routes traffic to. Every Pod in Kubernetes is assigned a private IP address within the cluster. However, these IPs are ephemeral — they can change if the Pod is restarted, rescheduled, or replaced.   
+#### Endpoints :- An endpoint is the IP address of the Pod that the Service routes traffic to. Every Pod in Kubernetes is assigned a private IP address within the cluster. However, these IPs are ephemeral — they can change if the Pod is restarted, rescheduled, or replaced and Exposing Pod IPs directly to users is not safe and can pose a security risk.
 
-### LoadBalancer(To access the application on a domain name or IP address without using the port number)
-- External (To use an external DNS for routing)
+### 📥 LoadBalancer (To access the application on a domain name or Public IP address without using the port number)
+
+When you want your application to be accessible from the internet, use a LoadBalancer Service. Once created, your cloud provider will provision a public IP (external IP).      
+
+A LoadBalancer Service still uses internal endpoints (Pod IPs) to route traffic behind the scenes. These Pod IPs are ephemeral — they can change when Pods are recreated. That's why Kubernetes uses Services as a stable access point, keeping direct Pod IPs hidden from users for security and reliability.      
+
+Sample YAML for LoadBalancer:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-loadbalancer
+spec:
+  type: LoadBalancer              # Exposes the service externally via cloud load balancer
+  selector:
+    app: frontend                 # Must match labels on frontend Pods
+  ports:
+    - protocol: TCP
+      port: 80                    # External port
+      targetPort: 3000            # Port where the frontend container is actually listening
+```
+
+Check the service:
+```bash
+kubectl get svc
+```
+
+Access the app via:
+```bash
+http://<EXTERNAL-IP>/<port>
+```
+
+### ↗️ External (To use an external DNS for routing)
+
+Use this when you want your Pods to access an external service using a Kubernetes service name, and let DNS handle the actual redirection.
+
+Sample YAML for External:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service
+  namespace: prod
+spec:
+  type: ExternalName
+  externalName: my.database.example.com
+```
+
+ A Pod in the prod namespace queries my-service, Kubernetes returns a CNAME pointing to my.database.example.com, and the Pod connects to the external host via DNS.
 
