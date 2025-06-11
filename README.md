@@ -517,3 +517,10 @@ spec:
 
  A Pod in the prod namespace queries my-service, Kubernetes returns a CNAME pointing to my.database.example.com, and the Pod connects to the external host via DNS.
 
+ ## Namespaces
+
+Namespaces provide an additional layer of isolation to help organize and separate Kubernetes objects. If no namespace is specified, the object is created in the default namespace. Kubernetes system components and internal objects are created in the kube-system namespace.      
+
+Resources within the same namespace can communicate with each other, but they cannot directly access objects in a different namespace unless explicitly configured to do so (FQDN).
+ 
+
