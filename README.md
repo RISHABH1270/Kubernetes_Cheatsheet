@@ -287,7 +287,7 @@ metadata:
     app: nginx
 spec:
   replicas: 3  # Number of pod replicas
-  selector:
+  selector:    # ReplicaSet
     matchLabels:
       app: nginx
   template:  # Pod template
@@ -315,16 +315,23 @@ kubectl scale --replicas=5 nginx-replicaset
 
 ## 📦📦📦🛠️ Kubernetes Deployment:
 
-Pods --> ReplicationController --> ReplicaSet --> Deployment       
+Pods → ReplicationController → ReplicaSet → Deployment      
          
-Supports:      
-Rolling updates (e.g., nginx:1.1 → nginx:1.2)    
-Zero downtime       
-Rollback if update fails      
-Automates safe transitions between versions.      
-ReplicaSet = raw pod management      
-Deployment = smart version-controlled lifecycle manager       
-              
+Key Capabilities with Deployments:
+
+- Seamless rolling updates (e.g., nginx:1.1 → nginx:1.2)
+- Zero downtime during updates
+- Automatic rollback on failure
+- Safely automates version transitions
+- Users remain unaffected as traffic is directed only to active and healthy Pods.      
+
+Breakdown:                
+       
+ReplicaSet = Low-level Pod manager    
+Deployment = High-level, version-aware lifecycle orchestrator        
+      
+A Deployment in Kubernetes creates and manages ReplicaSets under the hood.      
+                  
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -335,7 +342,7 @@ spec:
   selector:
     matchLabels:
       app: nginx
-  strategy:
+  strategy:       # Deployment
     type: RollingUpdate
     rollingUpdate:
       maxUnavailable: 1
@@ -351,8 +358,8 @@ spec:
         ports:
         - containerPort: 8080
 ```
-One new pod with 1.2 is created (maxSurge: 1)           
-One old pod with 1.1 is removed (maxUnavailable: 1)
+One new pod with nginx version 1.2 is created (maxSurge: 1)           
+One old pod with nginx version 1.1 is removed (maxUnavailable: 1)
 
 ```bash
 kubectl apply -f dp.yaml
@@ -373,13 +380,18 @@ kubectl rollout undo deployment/nginx-deployment
 ## 🌍 Service in Kubernetes
 
 Services exposes your app to outer world and it provides you a consistent endpoint (IP + DNS name).      
-A Service selects pods using labels and then forwards traffic to them.      
+A Service selects pods using labels and selectors then forwards traffic to them.     
+        
+Pod-to-Pod Communication? → Yes, typically via a Service      
+While Pods can technically communicate directly using their IPs, this is not recommended because Pod IPs are ephemeral — they change when a Pod restarts or reschedules. Instead, use a Service to give a stable DNS name and virtual IP.       
+Example: One Pod calls another via http://my-service.namespace.svc.cluster.local
           
 There are 4 types of Services:     
 
-- NodePort (Access the application through the port exposed by the node and then internal routing to targeted port happens)
+### 🔌 NodePort (Access the application through the port exposed by the node and then internal routed to targeted port of the application)
   
-#### Sample YAML for Nodeport
+Sample YAML for Nodeport      
+
 ```yaml
 apiVersion: v1
 kind: Service
@@ -388,7 +400,7 @@ metadata:
 spec:
   type: NodePort
   selector:
-    app: nginx
+    app: nginx   # This must match labels in your Pod/Deployment
   ports:
     - protocol: TCP
       nodePort: 30080     # External port exposed on each node (30000-32767)
@@ -396,7 +408,61 @@ spec:
       targetPort: 80      # Port on the pod/container  
 ```
 
-- ClusterIP(For Internal access)
-- LoadBalancer(To access the application on a domain name or IP address without using the port number)
+Get the Node IP(s):
+```bash
+kubectl get nodes -o wide
+```
+
+🧭 Step-by-Step Traffic Flow -    
+
+- Client Initiates Request - A user (browser, curl, etc.) makes a request to any Kubernetes node's external IP on port 30080.        
+http://node-ip:30080
+- NodePort Receives the Request - The Kubernetes NodePort service listens on port 30080 on every worker node, even if the Pod isn't running there.
+- Service Layer Forwards the Request - The request is routed internally to port 80 of the Service, which is a stable virtual IP inside the cluster.
+- Service Uses Selector to Find Pods - The Service checks for all Pods with the label is app: nginx
+- Load-Balancing to Pods - The Service load-balances traffic across matching Pods and sends it to the Pod’s targetPort (80), where nginx is running.
+- Pod Handles the Request - The nginx container listens on port 80, processes the request, and sends back a response.
+
+### 🌀 ClusterIP (For Internal access)
+
+A frontend connects to a backend through the cluster network, typically using a ClusterIP Service.
+
+- Frontend Pods: Your UI or client-side logic
+- Backend Pods: API, database access, business logic
+- ClusterIP Service: Exposes the backend internally
+
+Sample YAML for ClusterIP
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+spec:
+  type: ClusterIP               # Default type, exposes service inside the cluster only
+  selector:
+    app: backend                # This must match labels in your backend Pod/Deployment
+  ports:
+    - protocol: TCP
+      port: 80                  # Port exposed by the service (used by frontend to connect)
+      targetPort: 8080          # Port where the backend container is actually listening
+```
+
+Frontend Pod connects using the service name:      
+fetch("http://backend-service/")     
+
+Get the services:
+```bash
+kubectl get svc
+```
+
+Describe the services:
+```bash
+kubectl describe svc backend-service
+```
+
+#### Endpoints :- An endpoint is the IP address of the Pod that the Service routes traffic to. Every Pod in Kubernetes is assigned a private IP address within the cluster. However, these IPs are ephemeral — they can change if the Pod is restarted, rescheduled, or replaced.   
+
+### LoadBalancer(To access the application on a domain name or IP address without using the port number)
 - External (To use an external DNS for routing)
 
