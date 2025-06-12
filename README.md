@@ -592,9 +592,83 @@ Pods in different namespaces can communicate directly via Pod IPs since the ip's
 In a multi-container Pod, all containers share the same network namespace, storage volumes, and resource allocations. This means they can communicate over localhost and access the same data volumes. Typically, an init container runs setup tasks, the main app container handles the core workload, and sidecar/helper containers provide supporting functionality (like logging or syncing).
 
 
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: multi-container-pod
+spec:
+  # Shared volume between containers
+  volumes:
+    - name: shared-data
+      emptyDir: {}
 
+  # Init container runs once before app and sidecar start
+  initContainers:
+    - name: init-setup
+      image: busybox
+      command: ['sh', '-c', 'echo "Init done" > /data/init.log']
+      volumeMounts:
+        - name: shared-data
+          mountPath: /data
 
+  containers:
+    # Main application container
+    - name: app
+      image: nginx
+      ports:
+        - containerPort: 80
+      volumeMounts:
+        - name: shared-data
+          mountPath: /usr/share/nginx/html
+      env:
+        - name: ENVIRONMENT
+          value: "dev"         # Injects environment variable into the container
 
+    # Sidecar container that tails the init log file
+    - name: sidecar
+      image: busybox
+      command: ["sh"]
+      args: ["-c", "tail -f /data/init.log"]   # Runs tail command as container's main process
+      volumeMounts:
+        - name: shared-data
+          mountPath: /data
+```
+
+## 🛰️ Daemonset
+
+A Deployment creates a specified number of Pod replicas already mentioned and distributes them across available nodes based on scheduling policies and resource availability. However, the replica count is fixed unless manually updated or managed by an HPA (Horizontal Pod Autoscaler).     
+
+A DaemonSet, on the other hand, ensures that exactly one Pod runs on each node (or on selected nodes using labels or taints/tolerations). If a new node is added, the DaemonSet automatically schedules a Pod on it. Likewise, if a node is deleted, the Pod scheduled by the DaemonSet on that node is also automatically removed.        
+
+Example Pods managed by DaemonSets: kube-proxy, datadog-agent, node-exporter, filebeat etc.
+
+```yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nginx-daemonset
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:latest
+          ports:
+            - containerPort: 80
+```
+
+By default, Pods created by a DaemonSet are scheduled on all worker nodes, but not on control plane nodes. This is because control plane nodes are typically tainted with: node-role.kubernetes.io/control-plane:NoSchedule       
+      
+This taint prevents regular (custom) workloads from being scheduled on them. Since DaemonSet Pods are considered regular workloads, they do not get scheduled on control plane nodes unless the Pod is configured with a matching toleration to explicitly allow it.
 
 
 
