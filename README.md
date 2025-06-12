@@ -517,10 +517,88 @@ spec:
 
  A Pod in the prod namespace queries my-service, Kubernetes returns a CNAME pointing to my.database.example.com, and the Pod connects to the external host via DNS.
 
- ## Namespaces
+ ## 🛡️ Namespaces
 
 Namespaces provide an additional layer of isolation to help organize and separate Kubernetes objects. If no namespace is specified, the object is created in the default namespace. Kubernetes system components and internal objects are created in the kube-system namespace.      
 
-Resources within the same namespace can communicate with each other, but they cannot directly access objects in a different namespace unless explicitly configured to do so (FQDN).
+Resources within the same namespace can communicate using short names or direct Pod IPs. For cross-namespace access, objects must be referenced using their fully qualified domain names (FQDN), as defined by the cluster’s internal DNS settings.
+
+Different permissions can be assigned to different namespaces using RBAC, allowing fine-grained access control across the cluster.
  
+Get a list of namespaces in the cluster:
+```bash
+kubectl get namespaces
+```
+
+Get all resources in a specific namespace (e.g., kube-system):
+```bash
+kubectl get all -n kube-system
+```
+
+Get all resources in the default namespace:
+```bash
+kubectl get all
+```
+
+Get all resources in all namespaces:
+```bash
+kubectl get all -A
+```
+
+Imperative Way (Direct CLI Command)
+```bash
+kubectl create namespace dev
+```
+
+Declarative Way (Using YAML Manifest)
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+```
+
+```bash
+kubectl apply -f namespace.yaml
+```
+
+To delete a namespace in Kubernetes, ⚠️ This will delete all resources within the dev namespace, so use with caution.
+```bash
+kubectl delete namespace dev
+```
+
+To create a Pod in the dev namespace, Imperative Way:
+```bash
+kubectl run nginx-pod --image=nginx:latest --restart=Never -n dev
+```
+
+Declarative Way (YAML):
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-pod
+  namespace: dev
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+```
+
+Pods in different namespaces can communicate directly via Pod IPs since the ip's are for cluster network which is flat . However, when accessing a Service across namespaces using curl, the fully qualified domain name (FQDN) (e.g., svc-test.default.svc.cluster.local) must be used. This is based on the DNS search domains defined in /etc/resolv.conf.
+
+## 🧱 Multi Container Pod (init container, app container, sidecar/helper container) 
+
+In a multi-container Pod, all containers share the same network namespace, storage volumes, and resource allocations. This means they can communicate over localhost and access the same data volumes. Typically, an init container runs setup tasks, the main app container handles the core workload, and sidecar/helper containers provide supporting functionality (like logging or syncing).
+
+
+
+
+
+
+
+
+
+
+
 
