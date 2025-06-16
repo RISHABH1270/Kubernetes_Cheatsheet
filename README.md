@@ -728,6 +728,21 @@ The Kubernetes Scheduler is a control plane component responsible for assigning 
 
 The Kubernetes Scheduler is itself a Pod, but it's not scheduled like normal Pods it is a Static pod. A Static Pod is managed directly by the kubelet, not by the Kubernetes API Server. It's defined via a YAML file on disk (usually under /etc/kubernetes/manifests/) which consists of etcd.yaml, kube-scheduler.yaml, kube-controller-manager.yaml, kube-apiserver.yaml etc and the kubelet automatically monitor and starts it and if the manifest is missing then the componnents and the functionality it provides is also not there in the cluster. The kube-scheduler, like other control plane components (e.g., kube-apiserver, kube-controller-manager), is a static pod.
 
+By default, Kubernetes automatically schedules Pods using the kube-scheduler. But you can manually schedule a Pod by explicitly assigning it to a specific Node using the nodeName field.
 
+📄 Sample YAML: Manual Scheduling
 
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: manual-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  nodeName: worker-node-1  # 👈 Directly assign the Pod to this node
+```
+
+It will get created even if scheduler is not there. The kube-scheduler skips Pods that already have a nodeName set.
 
