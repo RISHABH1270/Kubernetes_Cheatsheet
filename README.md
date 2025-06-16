@@ -670,8 +670,63 @@ By default, Pods created by a DaemonSet are scheduled on all worker nodes, but n
       
 This taint prevents regular (custom) workloads from being scheduled on them. Since DaemonSet Pods are considered regular workloads, they do not get scheduled on control plane nodes unless the Pod is configured with a matching toleration to explicitly allow it.
 
+## ⏰ CronJob
 
+A CronJob in Kubernetes allows you to run Jobs on a repeating schedule, similar to how Linux cron works. It's ideal for tasks like: Backups, Log rotation, Scheduled reporting, Cleanup scripts.
+         
+First  *   -  Minute         (0-59)             
+Second *   -  Hour           (0-23)             
+Third  *   -  Day of Month   (1-31)            
+Fourth *   -  Month          (1-12)        
+Fifth  *   -  Day of Week    (0-7)  → Sunday = 0 or 7        
 
+📄 Sample CronJob YAML
+
+```yaml
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hello-cron
+spec:
+  schedule: "*/10 * * * *"           # Runs every 10 minute
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+            - name: hello
+              image: busybox
+              args:
+                - /bin/sh
+                - -c
+                - echo "Hello from CronJob at $(date)"
+          restartPolicy: OnFailure
+```
+
+Job - A Job in Kubernetes is used to run a task to completion — meaning it runs a pod (or multiple pods) until the task is successfully finished, and then it doesn't restart it again (unless configured to retry on failure). It's ideal for tasks like: Batch processing, One-time scripts, Database cleanup or patching, Sending notification emails etc.
+
+📄 Sample YAML for a Job
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: example-job
+spec:
+  template:
+    spec:
+      containers:
+        - name: example
+          image: busybox
+          command: ["sh", "-c", "echo Hello Kubernetes! && sleep 10"]
+      restartPolicy: OnFailure
+```
+
+## 📌 Kubernetes Scheduler
+
+The Kubernetes Scheduler is a control plane component responsible for assigning Pods to Nodes. When you create a Pod (directly or via a Deployment, Job, etc.), the Pod initially has no Node assigned. The scheduler selects the best Node based on available resources, constraints, and rules. 
+
+The Kubernetes Scheduler is itself a Pod, but it's not scheduled like normal Pods it is a Static pod. A Static Pod is managed directly by the kubelet, not by the Kubernetes API Server. It's defined via a YAML file on disk (usually under /etc/kubernetes/manifests/), and the kubelet automatically monitor and starts it. The kube-scheduler, like other control plane components (e.g., kube-apiserver, kube-controller-manager), is a static pod.
 
 
 
