@@ -771,13 +771,33 @@ selector:
     app: nginx
 ```
 
+nodeSelector - nodeSelector is used in a Pod spec to pin or schedule a Pod to specific nodes that have matching labels.
+
+```bash
+kubectl label nodes node1 gpu=false
+```
+
+Sample yaml with nodeSelector
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: no-gpu-pod
+spec:
+  containers:
+  - name: nginx
+    image: nginx
+  nodeSelector:
+    gpu: "false"
+```
+
 ## 💡 Taint
 
 A taint is applied to a node to repel certain Pods from being scheduled onto it, unless those Pods tolerate the taint.
 
 🧾 Example: Taint on Node
 
-```ymal
+```bash
 kubectl taint nodes node1 gpu=true:NoSchedule
 ```
 
@@ -804,5 +824,183 @@ tolerations:
 ```
 
 If a Pod doesn't have a toleration for a taint on a node, and no other nodes are available without that taint, then the Pod will go into the Pending state.
+
+🧹 Remove a Taint from a Node
+```bash
+kubectl taint nodes node1 gpu=true:NoSchedule-
+```
+
+## Taint & Toleration vs nodeSelector
+
+Taints and tolerations prevent pods from landing on certain nodes unless the pod explicitly tolerates the taint. However, toleration alone does not guarantee scheduling on that node — the scheduler still prefers untainted nodes first.
+
+In contrast, nodeSelector is a hard rule: it forces the pod to schedule only on nodes with matching labels.
+
+To guarantee scheduling on a tainted node, use both:
+
+toleration → allows the tainted node      
+
+nodeSelector → targets it directly
+
+## Node Affinity
+
+When you need more complex or multiple matching rules (like OR/AND logic, preferred rules, multiple labels, etc.), that's where Node Affinity comes in.
+
+Node Affinity is a mechanism in Kubernetes that allows you to constrain which nodes your pod is eligible to be scheduled on, based on labels assigned to nodes. It's similar to nodeSelector, but more expressive and flexible.
+
+There are two main types of node affinity:
+
+1) RequiredDuringSchedulingIgnoredDuringExecution: This is a hard rule. If the condition is not met, the pod will not be scheduled. Example: disk=ssd means only nodes with label disk=ssd are allowed.
+
+2) PreferredDuringSchedulingIgnoredDuringExecution: This is a soft rule. Scheduler will try to honor the condition, but if not possible, it can still schedule the pod elsewhere.
+
+Node Affinity Rules Are Only Evaluated at Scheduling Time - Any changes made to node labels during the execution of a pod do not affect already running pods.
+
+Sample YAML for Node Affinity
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: affinity-example
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: disk
+                operator: In
+                values:
+                  - ssd
+  containers:
+    - name: nginx
+      image: nginx
+```
+
+Use Taints & Tolerations together with Node Affinity for fine-grained pod placement control.
+
+1) Taints say: "Don’t come here unless you’re allowed."     
+
+2) Node Affinity says: "Please try to go there if possible."
+
+## Resource Requests & Limits
+
+Request - The minimum amount of CPU/Memory the pod needs to be scheduled on the node. Think: "Reservation".     
+
+Limit - The maximum amount of CPU/Memory the pod is allowed to use of the node. Think: "Ceiling".
+
+Example YAML for Resource Requests & Limits 
+
+```ymal
+resources:
+  requests:
+    cpu: "200m"         # 0.2 vCPU
+    memory: "256Mi"     # 256 MiB RAM
+  limits:
+    cpu: "500m"         # Max 0.5 vCPU
+    memory: "512Mi"     # Max 512 MiB RAM
+```
+
+⚠️ What Happens on Insufficient Resources?    
+
+1)  ❌ During Scheduling - If the requested CPU/Memory can't be fulfilled by any node, then we say Nodepool is hit and the pod stays in Pending. Error: 0/3 nodes are available: insufficient memory.
+
+2) 🧠 During Runtime: Exceeds Memory Limit - If the container tries to use more than its memory limit → OOMKilled. Kubernetes terminates the container immediately. Event: OOMKilled (Out Of Memory error) for example: You set limit to 512Mi but app uses 600Mi → Boom! 💥 & Monitor OOMKilled events with:
+
+```bash
+kubectl get events --field-selector reason=OOMKilling
+```
+
+3) 🔄 Exceeds CPU Limit - Container is throttled, not killed. CPU usage is capped, leading to slower performance. This happens silently unless you monitor it. Always define requests and limits to: Help the scheduler place your pods wisely and Prevent a single pod from hogging all node resources.
+
+
+## Stress Testing - 📊 Enable Resource Monitoring (Metrics Server)
+
+Kubernetes doesn’t expose resource usage (CPU/Memory) by default. You need to deploy the Metrics Server to collect and access these stats.
+
+```yaml
+# metrics-server-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metrics-server
+  namespace: kube-system
+  labels:
+    k8s-app: metrics-server
+spec:
+  selector:
+    matchLabels:
+      k8s-app: metrics-server
+  template:
+    metadata:
+      labels:
+        k8s-app: metrics-server
+    spec:
+      containers:
+        - name: metrics-server
+          image: registry.k8s.io/metrics-server/metrics-server:v0.6.4
+          args:
+            - --kubelet-insecure-tls
+            - --kubelet-preferred-address-types=InternalIP
+          ports:
+            - containerPort: 4443
+```
+
+```bash
+kubectl apply -f metrics-server-deployment.yaml
+```
+
+Verify Metrics - 
+
+```bash
+kubectl top node     # Shows node-level resource usage
+kubectl top pod      # Shows pod-level resource usage
+```
+
+So now we can use the polinux/stress image to simulate CPU and memory pressure for testing Kubernetes behavior under stress — useful for observing OOMKilled, throttling, or autoscaling reactions.    
+
+Sample YAML for Stress Testing using polinux/stress
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: stress-test
+spec:
+  containers:
+    - name: stress
+      image: polinux/stress
+      command: ["stress"]
+      args: ["--cpu", "2", "--vm", "1", "--vm-bytes", "512M", "--timeout", "60s"]
+      resources:
+        requests:
+          memory: "256Mi"
+          cpu: "500m"
+        limits:
+          memory: "300Mi"
+          cpu: "1"
+```
+
+This will help you visualize stress handling, especially if you combine it with: kubectl top node (to see pressure at node level) and Event logs for OOMKilled.    
+
+```bash
+kubectl apply -f stress-test.yaml
+kubectl top pod stress-test
+kubectl describe pod stress-test
+kubectl logs stress-test
+```
+     
+In Kubernetes, when a Pod consumes more resources than its defined limits, the system chooses to kill or throttle the Pod rather than impacting the entire node.
+
+
+
+
+
+
+
+
+
+
 
 
