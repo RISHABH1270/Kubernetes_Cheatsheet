@@ -993,6 +993,72 @@ kubectl logs stress-test
      
 In Kubernetes, when a Pod consumes more resources than its defined limits, the system chooses to kill or throttle the Pod rather than impacting the entire node.
 
+## ⚙️ Kubernetes Autoscaling
+
+Kubernetes autoscaling is the process of automatically adjusting the number of Pods or resources in a cluster based on real-time workload demands. These are main types:
+
+1) Horizontal Pod Autoscaler (HPA) (scale out / scale in) - Scales the number of Pod replicas up or down based on CPU/memory usage or custom metrics. Example: If CPU > 70%, more Pods are added to balance the load.
+
+2) Vertical Pod Autoscaler (VPA) (scale up / scale down) - Adjusts the resource requests/limits (CPU/memory) of existing Pods. It recommends or automatically updates values based on observed usage over time.
+
+3) Cluster Autoscaler (scale out / scale in) - Scales the underlying nodes in the cluster (like EC2, GKE nodes) by adding/removing nodes when Pods can't be scheduled due to insufficient resources.
+
+4)  Event & Schedule-Based Autoscaling - KEDA (CNCF project) enables event-driven autoscaling in Kubernetes using external sources like Kafka, RabbitMQ, Prometheus, etc. It also supports cron-based autoscaling, allowing workloads to scale up/down at scheduled times — ideal for predictable traffic spikes.
+
+In Kubernetes, you can define multiple objects in a single YAML file by separating them with ---.
+
+Together, these autoscaling components help ensure performance, cost-efficiency, and optimal resource utilization in dynamic workloads. Kubernetes autoscaling applies to both workloads (Pods) and infrastructure (Nodes) to ensure performance and efficiency under changing demand.     
+
+HPA (Horizontal Pod Autoscaler) is a native feature in Kubernetes and only requires the Metrics Server to function. VPA and Cluster Autoscaler are official projects but not shipped by default — they must be installed and configured manually.
+
+## Horizontal Pod Autoscaler (HPA)
+
+The HPA controller checks CPU metrics every 15 seconds (by default) using metrics from the Metrics Server. If the average CPU usage across pods exceeds the threshold, it scales up, and scales down if it's below the threshold.
+
+Imperative Way (CLI)
+
+```bash
+kubectl autoscale deployment nginx-deployment \
+  --cpu-percent=50 \
+  --min=2 \
+  --max=5
+```
+
+📄 Declarative Way (YAML) 
+
+```yaml
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: nginx-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: nginx-deployment
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 50
+```
+
+Generate load on a Kubernetes service (for example, likely a deployment called php-apache) to test Horizontal Pod Autoscaler (HPA) functionality. Perfect for stress testing and observing how HPA reacts to CPU load.
+
+```bash
+kubectl run -i --tty load-generator \
+  --rm \
+  --image=busybox:1.28 \
+  --restart=Never \
+  -- /bin/sh -c "while sleep 0.01; do wget -q -O- http://php-apache; done"
+```
+
+Watch Pods Live
+
+```bash
+kubectl get pods -w
+kubectl get pods -n default -w
+```
+
+
 
 
 
