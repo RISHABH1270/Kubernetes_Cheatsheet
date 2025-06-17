@@ -746,3 +746,63 @@ spec:
 
 It will get created even if scheduler is not there. The kube-scheduler skips Pods that already have a nodeName set.
 
+## 🏷️ Labels
+
+Key-value pairs attached to Kubernetes objects (like Pods, Deployments, etc.) and the purpose for this is Used to organize, group, and select objects.
+
+Sample yaml for Labels
+
+```yaml
+metadata:
+  labels:
+    app: nginx
+    tier: frontend
+```
+
+## 🎯 Selectors
+
+Mechanism to filter/select objects based on labels. Used in Services, ReplicaSets, Deployments, Network Policies etc.
+
+matchLabels - A type of label selector that matches exactly on the key-value pair.    
+
+```yaml
+selector:
+  matchLabels:
+    app: nginx
+```
+
+## 💡 Taint
+
+A taint is applied to a node to repel certain Pods from being scheduled onto it, unless those Pods tolerate the taint.
+
+🧾 Example: Taint on Node
+
+```ymal
+kubectl taint nodes node1 gpu=true:NoSchedule
+```
+
+This taint means: Do not schedule any Pod on node1 unless it has a matching toleration.
+
+## 🛡️ Toleration
+
+A toleration is applied to a Pod to allow it to be scheduled onto a node with a matching taint.      
+
+Effects - 
+
+NoSchedule - Pod will not be scheduled unless it tolerates the taint     
+PreferNoSchedule - Tries to avoid scheduling, but not strictly enforced      
+NoExecute - Evicts running Pods that don't tolerate the taint       
+
+🧾 Example: Toleration in a Pod
+
+```yaml
+tolerations:
+- key: "gpu"
+  operator: "Equal"
+  value: "true"
+  effect: "NoSchedule"
+```
+
+If a Pod doesn't have a toleration for a taint on a node, and no other nodes are available without that taint, then the Pod will go into the Pending state.
+
+
