@@ -1041,6 +1041,27 @@ spec:
   targetCPUUtilizationPercentage: 50
 ```
 
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: memory-based-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-app
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+```
+
 Generate load on a Kubernetes service (for example, likely a deployment called php-apache) to test Horizontal Pod Autoscaler (HPA) functionality. Perfect for stress testing and observing how HPA reacts to CPU load.
 
 ```bash
@@ -1058,10 +1079,62 @@ kubectl get pods -w
 kubectl get pods -n default -w
 ```
 
+## 🔍 Health Probes 
 
+In Kubernetes, health probes are used to monitor the health and availability of containers running inside Pods. These probes help the kubelet determine whether a container is Running correctly, Ready to accept traffic, Needs to be restarted.
 
+Types of Health Probes - 
 
+1) Liveness Probe - Checks if the container is alive, restart the container if it fails.
+2) Readiness Probe - Checks if the container is ready to serve traffic, if it fails then Container is removed from the Service endpoints.
+3) Startup Probe - Checks if the container has started successfully and helps avoid killing slow-starting containers (especially legacy apps).
 
+⚙️ Probe Configuration Methods - Health checks (probes) can be performed using three types of methods to determine the state of a container:
+
+1) HTTP GET request - Sends an HTTP GET request to a specific path and port of the container.
+2) TCP Socket check - Opens a TCP connection to a specified port of the container.
+3) Exec command inside the container - Executes a command inside the container. If the command exits with status 0, it’s healthy; anything else is unhealthy.
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 5
+
+startupProbe:
+  httpGet:
+    path: /start
+    port: 8080
+  failureThreshold: 30
+  periodSeconds: 10
+```
+
+ TCP and Exec probes - 
+
+ ```yaml
+readinessProbe:
+      tcpSocket:
+        port: 80           # Check if TCP port is open
+      initialDelaySeconds: 5
+      periodSeconds: 10
+
+livenessProbe:
+      exec:
+        command:
+        - cat
+        - /tmp/healthy      # Run a command inside the container
+      initialDelaySeconds: 5
+      periodSeconds: 10
+```
 
 
 
