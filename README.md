@@ -1136,10 +1136,204 @@ livenessProbe:
       periodSeconds: 10
 ```
 
+## ConfigMaps
 
+When using the same environment variable across multiple Pods, hardcoding in each Pod spec becomes inefficient. Instead, use ConfigMaps to centralize and manage environment variables.
 
+```yaml
+env:
+ - name: ENVIRONMENT
+   value: "dev"         # Injects environment variable into the container
+```
 
+Imperative Way
 
+```bash
+kubectl create configmap my-config \
+  --from-literal=FIRSTNAME=John \
+  --from-literal=LASTNAME=Doe
+```
+
+Sample YAML to create ConfigMap
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-config
+data:
+  FIRSTNAME: John
+  LASTNAME: Doe
+```
+
+```bash
+kubectl apply -f configmap.yaml
+```
+
+ Inject ConfigMap into Pod (envFrom):
+
+ ```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: configmap-pod
+spec:
+  containers:
+  - name: app
+    image: busybox
+    command: ["sh", "-c", "env && sleep 3600"]
+    envFrom:
+      - configMapRef:
+          name: my-config
+```
+
+This will expose all key-value pairs from my-config as environment variables inside the container.
+
+## SSL/TLS
+
+HTTP (Without SSL/TLS - Insecure)
+
+1) Client → Server: Sends a GET /login request in plain text.    
+2) Server → Client: Responds with login page.    
+3) Client → Server: Submits username/password in plain text.    
+4) Hacker (in middle): Intercepts traffic and reads credentials (sniffed).    
+
+🔐 Symmetric Encryption (Single Key) - Same key is used to encrypt and decrypt data. Both parties must share the same secret key securely. Problem: Key distribution is risky (if a hacker gets the key, they can decrypt everything).
+
+🔐 Asymmetric Encryption (Public / Private Key) - 
+
+Uses a key pair:
+
+1) Public Key – can be shared with anyone.
+2) Private Key – must be kept secret.
+
+🔑 How It Works: Encrypt with Public Key → Decrypt with Private Key. Commonly used in SSH, HTTPS (TLS), etc.
+
+Example with SSH:
+
+1) You run ssh-keygen to generate:
+2) id_rsa → Private Key (keep it secret)
+3) id_rsa.pub → Public Key (share with server)
+4) Server adds your public key to ~/.ssh/authorized_keys
+
+When you connect: Server challenges you. Your private key proves your identity (without sending password).
+
+🧑‍💻 Man-in-the-Middle Attack Risk - Even with public/private keys, a hacker could trick you by:
+
+Acting as the server:
+
+1) Sending their own public key instead of the real one
+2) Then they decrypt your data and forward it — you won’t know!
+
+📜 Solution: Certificates (TLS/SSL) - A certificate is a digitally signed proof of identity issued by a trusted Certificate Authority (CA).
+
+Prevents fake servers from impersonating real ones. Your browser (or client) trusts known CAs. If a server sends a self-signed or fake certificate, the client gets a warning. This stops the attacker from impersonating the server (🔐 secure HTTPS).
+
+🔁 Flow:
+
+1) Client connects to server over HTTPS.
+2) Server sends its certificate.
+3) Client checks that certificate is:
+4) Signed by a valid CA
+5) Matches the domain if not expired
+6) If valid → Secure TLS session starts 🔐
+7) If invalid → ⚠️ Warning (Untrusted Connection)
+
+## TLS certificates in Kubernetes
+
+Kubernetes secures internal communication using TLS certificates to ensure confidentiality and trust between components.
+
+1) kubectl ↔️ API Server: Communication is encrypted. kubectl uses a client certificate or token stored in ~/.kube/config.
+2) API Server ↔️ Kubelet (Node): TLS verifies and encrypts the connection when accessing logs, exec, or managing pods on nodes.
+3) Core Components: Control plane components like kube-scheduler, kube-controller-manager, and kube-proxy use certificates stored in /etc/kubernetes/pki.
+
+You can manually generate TLS certificates using openssl or manage them via tools like cert-manager.
+
+```bash
+# View client cert used by kubectl
+kubectl config view --raw
+```
+
+Example TLS secret creation:
+
+```bash
+kubectl create secret tls apiserver-tls \
+  --cert=apiserver.crt --key=apiserver.key -n kube-system
+```
+
+Use TLS secrets to mount certificates into pods for secure communication. Kubernetes ensures zero-trust by default, enabling strong authentication and encryption across the cluster.
+
+## 🔑 Authentication & Authorization in Kubernetes
+
+By default, Kubernetes uses the ~/.kube/config file to authenticate and authorize users like kubectl.
+
+🧾 Authentication - This verifies who you are.
+
+When you run a kubectl command, it uses the credentials in your ~/.kube/config file. These credentials can be:
+
+1) A client certificate
+2) A bearer token
+3) A username/password
+4) Or a cloud provider plugin
+
+Example (inside ~/.kube/config):
+
+```yaml
+users:
+- name: dev-user
+  user:
+    client-certificate: ~/.kube/dev-user.crt
+    client-key: ~/.kube/dev-user.key
+```
+
+🔐 Authorization - This checks what you're allowed to do. Once authenticated, Kubernetes uses an authorization module (like Role-Based Access Control) to determine if the user can perform the requested action. RBAC is a security mechanism in Kubernetes that controls who can do what on cluster resources.
+
+Kubernetes supports multiple authorization modes—like RBAC, ABAC, Webhook, and Node—to control access to resources, with RBAC being the most widely used and recommended.
+
+🧾 RBAC Components:
+
+1) Role – Defines a set of permissions (verbs like get, create, delete) on resources (pods, services, etc.) within a namespace.
+2) ClusterRole – Like Role, but applies cluster-wide.
+3) RoleBinding – Grants a Role to a user/service account in a namespace.
+4) ClusterRoleBinding – Grants a ClusterRole to users/subjects across all namespaces.
+
+Role:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  namespace: dev
+  name: pod-reader
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+```
+
+RoleBinding:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: read-pods
+  namespace: dev
+subjects:
+- kind: User
+  name: dev-user        # Must match a user from your kubeconfig
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
+```
+
+Test Access:
+
+```bash
+kubectl auth can-i list pods --as dev-user --namespace dev
+```
 
 
 
