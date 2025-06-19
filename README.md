@@ -1306,12 +1306,12 @@ metadata:
   namespace: dev
   name: pod-reader
 rules:
-- apiGroups: [""]
+- apiGroups: [""] # indicates the core API group
   resources: ["pods"]
   verbs: ["get", "list", "watch"]
 ```
 
-RoleBinding:
+RoleBinding: We have to bind the above role to the user.
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
