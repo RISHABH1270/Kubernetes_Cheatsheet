@@ -1,4 +1,4 @@
- # 🚀 Dive into Kubernetes with Minikube: Your Ultimate Hands-On Cheatsheet
+# 🚀 Dive into Kubernetes with Minikube: Your Ultimate Hands-On Cheatsheet
 
 Welcome to your **beginner-friendly reference guide** for practicing Kubernetes locally using **Minikube**. This cheatsheet is a growing collection of essential commands, architectural insights, and concepts that I’m learning and applying. Updates and deep dives coming soon! 🌱
 
@@ -463,12 +463,11 @@ Pod-to-Pod Communication? → Yes, typically via a Service
 While Pods can technically communicate directly using their IPs, this is not recommended because Pod IPs are ephemeral — they change when a Pod restarts or reschedules. Instead, use a Service to give a stable DNS name and virtual IP.       
 Example: One Pod calls another via http://my-service.namespace.svc.cluster.local
           
-There are 4 types of Services:     
+### There are 4 types of Services:     
 
 ### 🔌 NodePort (Access the application through the port exposed by the node and then internal routed to targeted port of the application)
   
-Sample YAML for Nodeport      
-
+Sample YAML for Nodeport:
 ```yaml
 apiVersion: v1
 kind: Service
@@ -502,7 +501,7 @@ http://<node-ip>:30080
 - Load-Balancing to Pods - The Service load-balances traffic across matching Pods and sends it to the Pod’s targetPort (80), where nginx is running.
 - Pod Handles the Request - The nginx container listens on port 80, processes the request, and sends back a response.
 
-### 🌀 ClusterIP (For Internal access)
+### 🌀 ClusterIP (For Internal access - default)
 
 A frontend connects to a backend through the cluster network, typically using a ClusterIP Service.
 
@@ -510,8 +509,7 @@ A frontend connects to a backend through the cluster network, typically using a 
 - Backend Pods: API, database access, business logic
 - ClusterIP Service: Exposes the backend internally
 
-Sample YAML for ClusterIP
-
+Sample YAML for ClusterIP:
 ```yaml
 apiVersion: v1
 kind: Service
@@ -540,7 +538,7 @@ Describe the services:
 kubectl describe svc backend-service
 ```
 
-#### Endpoints :- An endpoint is the IP address of the Pod that the Service routes traffic to. Every Pod in Kubernetes is assigned a private IP address within the cluster. However, these IPs are ephemeral — they can change if the Pod is restarted, rescheduled, or replaced and Exposing Pod IPs directly to users is not safe and can pose a security risk.
+- Endpoints :- An endpoint is the IP address of the Pod that the Service routes traffic to. Every Pod in Kubernetes is assigned a private IP address within the cluster. However, these IPs are ephemeral — they can change if the Pod is restarted, rescheduled, or replaced and Exposing Pod IPs directly to users is not safe and can pose a security risk.
 
 ### 📥 LoadBalancer (To access the application on a domain name or Public IP address without using the port number)
 
@@ -549,7 +547,6 @@ When you want your application to be accessible from the internet, use a LoadBal
 A LoadBalancer Service still uses internal endpoints (Pod IPs) to route traffic behind the scenes. These Pod IPs are ephemeral — they can change when Pods are recreated. That's why Kubernetes uses Services as a stable access point, keeping direct Pod IPs hidden from users for security and reliability.      
 
 Sample YAML for LoadBalancer:
-
 ```yaml
 apiVersion: v1
 kind: Service
@@ -580,7 +577,6 @@ http://<EXTERNAL-IP>/<port>
 Use this when you want your Pods to access an external service using a Kubernetes service name, and let DNS handle the actual redirection.
 
 Sample YAML for External:
-
 ```yaml
 apiVersion: v1
 kind: Service
@@ -594,13 +590,15 @@ spec:
 
  A Pod in the prod namespace queries my-service, Kubernetes returns a CNAME pointing to my.database.example.com, and the Pod connects to the external host via DNS.
 
+--- 
+
  ## 🛡️ Namespaces
 
-Namespaces provide an additional layer of isolation to help organize and separate Kubernetes objects. If no namespace is specified, the object is created in the default namespace. Kubernetes system components and internal objects are created in the kube-system namespace.      
+Namespaces provide an additional layer of isolation to help organize and separate Kubernetes objects. If no namespace is specified, the object is created in the default namespace. Kubernetes system components and internal objects are created in the kube-system namespace.         
 
-Resources within the same namespace can communicate using short names or direct Pod IPs. For cross-namespace access, objects must be referenced using their fully qualified domain names (FQDN), as defined by the cluster’s internal DNS settings.
+Resources within the same namespace can communicate using short names or direct Pod IPs. For cross-namespace access, objects must be referenced using their fully qualified domain names (FQDN), as defined by the cluster’s internal DNS settings.          
 
-Different permissions can be assigned to different namespaces using RBAC, allowing fine-grained access control across the cluster.
+Different permissions can be assigned to different namespaces using RBAC, allowing fine-grained access control across the cluster.         
  
 Get a list of namespaces in the cluster:
 ```bash
@@ -622,12 +620,12 @@ Get all resources in all namespaces:
 kubectl get all -A
 ```
 
-Imperative Way (Direct CLI Command)
+Imperative Way (Direct CLI Command):
 ```bash
 kubectl create namespace dev
 ```
 
-Declarative Way (Using YAML Manifest)
+Declarative Way (Using YAML Manifest):
 ```yaml
 apiVersion: v1
 kind: Namespace
@@ -639,7 +637,7 @@ metadata:
 kubectl apply -f namespace.yaml
 ```
 
-To delete a namespace in Kubernetes, ⚠️ This will delete all resources within the dev namespace, so use with caution.
+⚠️ To delete a namespace in Kubernetes, This will delete all resources within the dev namespace, so use with caution.
 ```bash
 kubectl delete namespace dev
 ```
@@ -664,10 +662,15 @@ spec:
 
 Pods in different namespaces can communicate directly via Pod IPs since the ip's are for cluster network which is flat . However, when accessing a Service across namespaces using curl, the fully qualified domain name (FQDN) (e.g., svc-test.default.svc.cluster.local) must be used. This is based on the DNS search domains defined in /etc/resolv.conf.
 
+---
+
 ## 🧱 Multi Container Pod (init container, app container, sidecar/helper container) 
 
-In a multi-container Pod, all containers share the same network namespace, storage volumes, and resource allocations. This means they can communicate over localhost and access the same data volumes. Typically, an init container runs setup tasks, the main app container handles the core workload, and sidecar/helper containers provide supporting functionality (like logging or syncing).
+In a multi-container Pod, all containers share the same network namespace, storage volumes, and resource allocations. This means they can communicate over localhost and access the same data volumes. Typically, 
 
+- an init container runs setup tasks
+- the main app container handles the core workload
+- sidecar/helper containers provide supporting functionality (like logging or syncing).
 
 ```yaml
 apiVersion: v1
@@ -712,6 +715,8 @@ spec:
           mountPath: /data
 ```
 
+---
+
 ## 🛰️ Daemonset
 
 A Deployment creates a specified number of Pod replicas already mentioned and distributes them across available nodes based on scheduling policies and resource availability. However, the replica count is fixed unless manually updated or managed by an HPA (Horizontal Pod Autoscaler).     
@@ -743,22 +748,25 @@ spec:
             - containerPort: 80
 ```
 
-By default, Pods created by a DaemonSet are scheduled on all worker nodes, but not on control plane nodes. This is because control plane nodes are typically tainted with: node-role.kubernetes.io/control-plane:NoSchedule       
+By default, Pods created by a DaemonSet are scheduled on all worker nodes, but not on control plane nodes. This is because control plane nodes are typically tainted with:  
+
+node-role.kubernetes.io/control-plane:NoSchedule       
       
 This taint prevents regular (custom) workloads from being scheduled on them. Since DaemonSet Pods are considered regular workloads, they do not get scheduled on control plane nodes unless the Pod is configured with a matching toleration to explicitly allow it.
+
+---
 
 ## ⏰ CronJob
 
 A CronJob in Kubernetes allows you to run Jobs on a repeating schedule, similar to how Linux cron works. It's ideal for tasks like: Backups, Log rotation, Scheduled reporting, Cleanup scripts.
          
-First  *   -  Minute         (0-59)             
-Second *   -  Hour           (0-23)             
-Third  *   -  Day of Month   (1-31)            
-Fourth *   -  Month          (1-12)        
-Fifth  *   -  Day of Week    (0-7)  → Sunday = 0 or 7        
+- First  *   -  Minute         (0-59)             
+- Second *   -  Hour           (0-23)             
+- Third  *   -  Day of Month   (1-31)            
+- Fourth *   -  Month          (1-12)        
+- Fifth  *   -  Day of Week    (0-7)  → Sunday = 0 or 7        
 
-📄 Sample CronJob YAML
-
+📄 Sample CronJob YAML:
 ```yaml
 apiVersion: batch/v1
 kind: CronJob
@@ -782,8 +790,7 @@ spec:
 
 Job - A Job in Kubernetes is used to run a task to completion — meaning it runs a pod (or multiple pods) until the task is successfully finished, and then it doesn't restart it again (unless configured to retry on failure). It's ideal for tasks like: Batch processing, One-time scripts, Database cleanup or patching, Sending notification emails etc.
 
-📄 Sample YAML for a Job
-
+📄 Sample YAML for a Job:
 ```yaml
 apiVersion: batch/v1
 kind: Job
@@ -799,16 +806,25 @@ spec:
       restartPolicy: OnFailure
 ```
 
+---
+
 ## 📌 Kubernetes Scheduler
 
 The Kubernetes Scheduler is a control plane component responsible for assigning Pods to Nodes. When you create a Pod (directly or via a Deployment, Job, etc.), the Pod initially has no Node assigned. The scheduler selects the best Node based on available resources, constraints, and rules. 
 
-The Kubernetes Scheduler is itself a Pod, but it's not scheduled like normal Pods it is a Static pod. A Static Pod is managed directly by the kubelet, not by the Kubernetes API Server. It's defined via a YAML file on disk (usually under /etc/kubernetes/manifests/) which consists of etcd.yaml, kube-scheduler.yaml, kube-controller-manager.yaml, kube-apiserver.yaml etc and the kubelet automatically monitor and starts it and if the manifest is missing then the componnents and the functionality it provides is also not there in the cluster. The kube-scheduler, like other control plane components (e.g., kube-apiserver, kube-controller-manager), is a static pod.
+The Kubernetes Scheduler is itself a Pod, but it's not scheduled like normal Pods it is a Static pod. A Static Pod is managed directly by the kubelet, not by the Kubernetes API Server.     
+
+It's defined via a YAML file on disk (usually under /etc/kubernetes/manifests/) which consists of 
+- etcd.yaml
+- kube-scheduler.yaml
+- kube-controller-manager.yaml
+- kube-apiserver.yaml
+
+The kubelet automatically monitor and starts it and if the manifest is missing then the componnents and the functionality it provides is also not there in the cluster. The kube-scheduler, like other control plane components (e.g., kube-apiserver, kube-controller-manager), is a static pod.       
 
 By default, Kubernetes automatically schedules Pods using the kube-scheduler. But you can manually schedule a Pod by explicitly assigning it to a specific Node using the nodeName field.
 
-📄 Sample YAML: Manual Scheduling
-
+📄 Sample YAML for Manual Scheduling:
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -823,18 +839,21 @@ spec:
 
 It will get created even if scheduler is not there. The kube-scheduler skips Pods that already have a nodeName set.
 
+---
+
 ## 🏷️ Labels
 
 Key-value pairs attached to Kubernetes objects (like Pods, Deployments, etc.) and the purpose for this is Used to organize, group, and select objects.
 
-Sample yaml for Labels
-
+Sample yaml for Labels:
 ```yaml
 metadata:
   labels:
     app: nginx
     tier: frontend
 ```
+
+---
 
 ## 🎯 Selectors
 
@@ -854,7 +873,7 @@ nodeSelector - nodeSelector is used in a Pod spec to pin or schedule a Pod to sp
 kubectl label nodes node1 gpu=false
 ```
 
-Sample yaml with nodeSelector
+Sample yaml with nodeSelector:
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -868,17 +887,20 @@ spec:
     gpu: "false"
 ```
 
+---
+
 ## 💡 Taint
 
 A taint is applied to a node to repel certain Pods from being scheduled onto it, unless those Pods tolerate the taint.
 
-🧾 Example: Taint on Node
-
+🧾 Taint on Node:
 ```bash
 kubectl taint nodes node1 gpu=true:NoSchedule
 ```
 
 This taint means: Do not schedule any Pod on node1 unless it has a matching toleration.
+
+---
 
 ## 🛡️ Toleration
 
@@ -886,12 +908,11 @@ A toleration is applied to a Pod to allow it to be scheduled onto a node with a 
 
 Effects - 
 
-NoSchedule - Pod will not be scheduled unless it tolerates the taint     
-PreferNoSchedule - Tries to avoid scheduling, but not strictly enforced      
-NoExecute - Evicts running Pods that don't tolerate the taint       
+- NoSchedule - Pod will not be scheduled unless it tolerates the taint     
+- PreferNoSchedule - Tries to avoid scheduling, but not strictly enforced      
+- NoExecute - Evicts running Pods that don't tolerate the taint       
 
 🧾 Example: Toleration in a Pod
-
 ```yaml
 tolerations:
 - key: "gpu"
@@ -907,7 +928,9 @@ If a Pod doesn't have a toleration for a taint on a node, and no other nodes are
 kubectl taint nodes node1 gpu=true:NoSchedule-
 ```
 
-## Taint & Toleration vs nodeSelector
+---
+
+## ⚔️ Taint & Toleration vs nodeSelector
 
 Taints and tolerations prevent pods from landing on certain nodes unless the pod explicitly tolerates the taint. However, toleration alone does not guarantee scheduling on that node — the scheduler still prefers untainted nodes first.
 
@@ -915,11 +938,12 @@ In contrast, nodeSelector is a hard rule: it forces the pod to schedule only on 
 
 To guarantee scheduling on a tainted node, use both:
 
-toleration → allows the tainted node      
+- toleration → allows the tainted node
+- nodeSelector → targets it directly
 
-nodeSelector → targets it directly
+---
 
-## Node Affinity
+## 🧲 Node Affinity
 
 When you need more complex or multiple matching rules (like OR/AND logic, preferred rules, multiple labels, etc.), that's where Node Affinity comes in.
 
@@ -957,18 +981,18 @@ spec:
 
 Use Taints & Tolerations together with Node Affinity for fine-grained pod placement control.
 
-1) Taints say: "Don’t come here unless you’re allowed."     
+- Taints say: "Don’t come here unless you’re allowed."
+- Node Affinity says: "Please try to go there if possible."
 
-2) Node Affinity says: "Please try to go there if possible."
+---
 
-## Resource Requests & Limits
+## 💾 Resource Requests & Limits
 
-Request - The minimum amount of CPU/Memory the pod needs to be scheduled on the node. Think: "Reservation".     
+1) Request - The minimum amount of CPU/Memory the pod needs to be scheduled on the node. Think: "Reservation".        
 
-Limit - The maximum amount of CPU/Memory the pod is allowed to use of the node. Think: "Ceiling".
+2) Limit - The maximum amount of CPU/Memory the pod is allowed to use of the node. Think: "Ceiling".
 
-Example YAML for Resource Requests & Limits 
-
+Example YAML for Resource Requests & Limits:
 ```ymal
 resources:
   requests:
@@ -981,18 +1005,19 @@ resources:
 
 ⚠️ What Happens on Insufficient Resources?    
 
-1)  ❌ During Scheduling - If the requested CPU/Memory can't be fulfilled by any node, then we say Nodepool is hit and the pod stays in Pending. Error: 0/3 nodes are available: insufficient memory.
-
-2) 🧠 During Runtime: Exceeds Memory Limit - If the container tries to use more than its memory limit → OOMKilled. Kubernetes terminates the container immediately. Event: OOMKilled (Out Of Memory error) for example: You set limit to 512Mi but app uses 600Mi → Boom! 💥 & Monitor OOMKilled events with:
+- ❌ During Scheduling - If the requested CPU/Memory can't be fulfilled by any node, then we say Nodepool is hit and the pod stays in Pending. Error: 0/3 nodes are available: insufficient memory.
+  
+- 🧠 During Runtime: Exceeds Memory Limit - If the container tries to use more than its memory limit → OOMKilled. Kubernetes terminates the container immediately. Event: OOMKilled (Out Of Memory error) for example: You set limit to 512Mi but app uses 600Mi → Boom! 💥 & Monitor OOMKilled events with:
 
 ```bash
 kubectl get events --field-selector reason=OOMKilling
 ```
 
-3) 🔄 Exceeds CPU Limit - Container is throttled, not killed. CPU usage is capped, leading to slower performance. This happens silently unless you monitor it. Always define requests and limits to: Help the scheduler place your pods wisely and Prevent a single pod from hogging all node resources.
+- 🔄 Exceeds CPU Limit - Container is throttled, not killed. CPU usage is capped, leading to slower performance. This happens silently unless you monitor it. Always define requests and limits to: Help the scheduler place your pods wisely and Prevent a single pod from hogging all node resources.
 
+---
 
-## Stress Testing - 📊 Enable Resource Monitoring (Metrics Server)
+## 📊 Stress Testing - Enable Resource Monitoring (Metrics Server)
 
 Kubernetes doesn’t expose resource usage (CPU/Memory) by default. You need to deploy the Metrics Server to collect and access these stats.
 
@@ -1028,8 +1053,7 @@ spec:
 kubectl apply -f metrics-server-deployment.yaml
 ```
 
-Verify Metrics - 
-
+Verify Metrics:
 ```bash
 kubectl top node     # Shows node-level resource usage
 kubectl top pod      # Shows pod-level resource usage
@@ -1037,8 +1061,7 @@ kubectl top pod      # Shows pod-level resource usage
 
 So now we can use the polinux/stress image to simulate CPU and memory pressure for testing Kubernetes behavior under stress — useful for observing OOMKilled, throttling, or autoscaling reactions.    
 
-Sample YAML for Stress Testing using polinux/stress
-
+Sample YAML for Stress Testing using polinux/stress:
 ```yaml
 apiVersion: v1
 kind: Pod
@@ -1059,8 +1082,7 @@ spec:
           cpu: "1"
 ```
 
-This will help you visualize stress handling, especially if you combine it with: kubectl top node (to see pressure at node level) and Event logs for OOMKilled.    
-
+This will help you visualize stress handling, especially if you combine it with: kubectl top node (to see pressure at node level) and Event logs for OOMKilled:
 ```bash
 kubectl apply -f stress-test.yaml
 kubectl top pod stress-test
@@ -1070,7 +1092,9 @@ kubectl logs stress-test
      
 In Kubernetes, when a Pod consumes more resources than its defined limits, the system chooses to kill or throttle the Pod rather than impacting the entire node.
 
-## ⚙️ Kubernetes Autoscaling
+---
+
+## 📈 Kubernetes Autoscaling
 
 Kubernetes autoscaling is the process of automatically adjusting the number of Pods or resources in a cluster based on real-time workload demands. These are main types:
 
@@ -1086,14 +1110,15 @@ In Kubernetes, you can define multiple objects in a single YAML file by separati
 
 Together, these autoscaling components help ensure performance, cost-efficiency, and optimal resource utilization in dynamic workloads. Kubernetes autoscaling applies to both workloads (Pods) and infrastructure (Nodes) to ensure performance and efficiency under changing demand.     
 
-HPA (Horizontal Pod Autoscaler) is a native feature in Kubernetes and only requires the Metrics Server to function. VPA and Cluster Autoscaler are official projects but not shipped by default — they must be installed and configured manually.
+HPA (Horizontal Pod Autoscaler) is a native feature in Kubernetes and only requires the Metrics Server to function. VPA and Cluster Autoscaler are official projects but not shipped by default so they must be installed and configured manually.
+
+---
 
 ## Horizontal Pod Autoscaler (HPA)
 
 The HPA controller checks CPU metrics every 15 seconds (by default) using metrics from the Metrics Server. If the average CPU usage across pods exceeds the threshold, it scales up, and scales down if it's below the threshold.
 
-Imperative Way (CLI)
-
+Imperative Way (CLI):
 ```bash
 kubectl autoscale deployment nginx-deployment \
   --cpu-percent=50 \
@@ -1101,8 +1126,7 @@ kubectl autoscale deployment nginx-deployment \
   --max=5
 ```
 
-📄 Declarative Way (YAML) 
-
+📄 Declarative Way (YAML) :
 ```yaml
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
@@ -1149,12 +1173,13 @@ kubectl run -i --tty load-generator \
   -- /bin/sh -c "while sleep 0.01; do wget -q -O- http://php-apache; done"
 ```
 
-Watch Pods Live
-
+Watch Pods Live:
 ```bash
 kubectl get pods -w
 kubectl get pods -n default -w
 ```
+
+---
 
 ## 🔍 Health Probes 
 
@@ -1195,8 +1220,7 @@ startupProbe:
   periodSeconds: 10
 ```
 
- TCP and Exec probes - 
-
+ TCP and Exec probes:
  ```yaml
 readinessProbe:
       tcpSocket:
@@ -1213,7 +1237,9 @@ livenessProbe:
       periodSeconds: 10
 ```
 
-## ConfigMaps
+---
+
+## 🔑 ConfigMaps
 
 When using the same environment variable across multiple Pods, hardcoding in each Pod spec becomes inefficient. Instead, use ConfigMaps to centralize and manage environment variables.
 
@@ -1223,16 +1249,14 @@ env:
    value: "dev"         # Injects environment variable into the container
 ```
 
-Imperative Way
-
+Imperative Way:
 ```bash
 kubectl create configmap my-config \
   --from-literal=FIRSTNAME=John \
   --from-literal=LASTNAME=Doe
 ```
 
-Sample YAML to create ConfigMap
-
+Sample YAML to create ConfigMap:
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -1248,7 +1272,6 @@ kubectl apply -f configmap.yaml
 ```
 
  Inject ConfigMap into Pod (envFrom):
-
  ```yaml
 apiVersion: v1
 kind: Pod
@@ -1265,6 +1288,8 @@ spec:
 ```
 
 This will expose all key-value pairs from my-config as environment variables inside the container.
+
+---
 
 ## SSL/TLS
 
