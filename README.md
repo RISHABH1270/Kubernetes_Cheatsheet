@@ -266,7 +266,7 @@ You'll find the latest error message in the Events section.
 💡 Potential Causes
 - 🔌 Registry unavailable
 - 📦 Image or repository not found
-- 🔒 Authorization required
+- 🔒 Authentication required
 - ❌ Authorization failed
 - 📝 Typo in the image name
 
@@ -287,6 +287,7 @@ kubectl exec -it my-pod -- sh
 
 For multiple containers running inside a pod:
 ```bash
+kubectl exec -it my-pod -c nginx -- bash
 kubectl exec -it my-pod -c nginx -- bash
 ```
 
@@ -444,7 +445,15 @@ kubectl rollout history deployment/nginx-deployment
 
 ---
 
-## 🔁 Rollback a Deployment
+## 🔁 Rollout Restart
+
+```bash
+kubectl rollout restart deployment nginx-deployment
+```
+
+---
+
+## 🔙 Rollback a Deployment
 
 ```bash
 kubectl rollout undo deployment/nginx-deployment
@@ -454,7 +463,17 @@ kubectl rollout undo deployment/nginx-deployment
 
 ## 🌍 Service in Kubernetes
 
-Services exposes your app to outer world and it provides you a consistent endpoint (IP + DNS name).       
+Services exposes your app/pod to outer world and it provides you a consistent endpoint (IP + DNS name).  
+
+🧠 Default DNS Name Format for Services by Kubernetes internal DNS system (kube-dns or CoreDNS):
+```bash
+<service-name>.<namespace>.svc.cluster.local
+```
+
+📌 What DNS names provide:
+- Stable names for internal communication.
+- No need to hard-code IPs (which can change).
+- Auto-registration/removal as Services are created/destroyed.
 
 A Service selects pods using labels and selectors then forwards traffic to them.        
         
@@ -465,7 +484,7 @@ Example: One Pod calls another via http://my-service.namespace.svc.cluster.local
           
 ### There are 4 types of Services:     
 
-### 🔌 NodePort (Access the application through the port exposed by the node and then internal routed to targeted port of the application)
+🔌 ***NodePort*** (Access the application through the port exposed by the node and then internal routed to targeted port of the application)
   
 Sample YAML for Nodeport:
 ```yaml
@@ -501,7 +520,7 @@ http://<node-ip>:30080
 - Load-Balancing to Pods - The Service load-balances traffic across matching Pods and sends it to the Pod’s targetPort (80), where nginx is running.
 - Pod Handles the Request - The nginx container listens on port 80, processes the request, and sends back a response.
 
-### 🌀 ClusterIP (For Internal access - default)
+🌀 ***ClusterIP*** (For Internal access - default)
 
 A frontend connects to a backend through the cluster network, typically using a ClusterIP Service.
 
@@ -538,9 +557,9 @@ Describe the services:
 kubectl describe svc backend-service
 ```
 
-- Endpoints :- An endpoint is the IP address of the Pod that the Service routes traffic to. Every Pod in Kubernetes is assigned a private IP address within the cluster. However, these IPs are ephemeral — they can change if the Pod is restarted, rescheduled, or replaced and Exposing Pod IPs directly to users is not safe and can pose a security risk.
+- **Endpoints** :- An endpoint is the IP address of the Pod that the Service routes traffic to. Every Pod in Kubernetes is assigned a private IP address within the cluster. However, these IPs are ephemeral — they can change if the Pod is restarted, rescheduled, or replaced and Exposing Pod IPs directly to users is not safe and can pose a security risk.
 
-### 📥 LoadBalancer (To access the application on a domain name or Public IP address without using the port number)
+📥 ***LoadBalancer*** (To access the application on a domain name or Public IP address without using the port number)
 
 When you want your application to be accessible from the internet, use a LoadBalancer Service. Once created, your cloud provider will provision a public IP (external IP).      
 
@@ -572,7 +591,7 @@ Access the app via:
 http://<EXTERNAL-IP>/<port>
 ```
 
-### ↗️ External (To use an external DNS for routing)
+↗️ ***External*** (To use an external DNS for routing)
 
 Use this when you want your Pods to access an external service using a Kubernetes service name, and let DNS handle the actual redirection.
 
@@ -596,7 +615,7 @@ spec:
 
 Namespaces provide an additional layer of isolation to help organize and separate Kubernetes objects. If no namespace is specified, the object is created in the default namespace. Kubernetes system components and internal objects are created in the kube-system namespace.         
 
-Resources within the same namespace can communicate using short names or direct Pod IPs. For cross-namespace access, objects must be referenced using their fully qualified domain names (FQDN), as defined by the cluster’s internal DNS settings.          
+Resources within the same namespace can communicate using short names or direct Pod IPs. For cross-namespace access, objects must be referenced using their service fully qualified domain names (FQDN), as defined by the cluster’s internal DNS settings.          
 
 Different permissions can be assigned to different namespaces using RBAC, allowing fine-grained access control across the cluster.         
  
@@ -719,11 +738,11 @@ spec:
 
 ## 🛰️ Daemonset
 
-A Deployment creates a specified number of Pod replicas already mentioned and distributes them across available nodes based on scheduling policies and resource availability. However, the replica count is fixed unless manually updated or managed by an HPA (Horizontal Pod Autoscaler).     
+A Deployment creates a specified number of Pod replicas already mentioned and distributes them across available nodes based on scheduling policies and resource availability by schedular. However, the replica count is fixed unless manually updated or managed by an HPA (Horizontal Pod Autoscaler).     
 
 A DaemonSet, on the other hand, ensures that exactly one Pod runs on each node (or on selected nodes using labels or taints/tolerations). If a new node is added, the DaemonSet automatically schedules a Pod on it. Likewise, if a node is deleted, the Pod scheduled by the DaemonSet on that node is also automatically removed.        
 
-Example Pods managed by DaemonSets: kube-proxy, datadog-agent, node-exporter, filebeat etc.
+Example Pods managed by DaemonSets: kube-proxy, kubelet, datadog-agent, node-exporter, filebeat etc.
 
 ```yaml
 apiVersion: apps/v1
@@ -788,7 +807,9 @@ spec:
           restartPolicy: OnFailure
 ```
 
-Job - A Job in Kubernetes is used to run a task to completion — meaning it runs a pod (or multiple pods) until the task is successfully finished, and then it doesn't restart it again (unless configured to retry on failure). It's ideal for tasks like: Batch processing, One-time scripts, Database cleanup or patching, Sending notification emails etc.
+Job - A Job in Kubernetes is used to run a task to completion — meaning it runs a pod (or multiple pods) until the task is successfully finished, and then it doesn't restart it again (unless configured to retry on failure). It's ideal for tasks like: Batch processing, One-time scripts, Database cleanup or patching, Sending notification emails etc.     
+
+A Kubernetes Job runs a pod to completion (e.g., batch task), and when it finishes successfully, the pod shows Completed 0/1 — meaning it’s done and not running. 
 
 📄 Sample YAML for a Job:
 ```yaml
@@ -1114,7 +1135,7 @@ HPA (Horizontal Pod Autoscaler) is a native feature in Kubernetes and only requi
 
 ---
 
-## Horizontal Pod Autoscaler (HPA)
+## ⬆️⬇️ Horizontal Pod Autoscaler (HPA)
 
 The HPA controller checks CPU metrics every 15 seconds (by default) using metrics from the Metrics Server. If the average CPU usage across pods exceeds the threshold, it scales up, and scales down if it's below the threshold.
 
@@ -1291,7 +1312,7 @@ This will expose all key-value pairs from my-config as environment variables ins
 
 ---
 
-## SSL/TLS
+## 💬📄 SSL/TLS
 
 HTTP (Without SSL/TLS - Insecure)
 
@@ -1318,7 +1339,17 @@ Example with SSH:
 3) id_rsa.pub → Public Key (share with server)
 4) Server adds your public key to ~/.ssh/authorized_keys
 
-When you connect: Server challenges you. Your private key proves your identity (without sending password).
+When you connect: Server challenges you. Your private key proves your identity (without sending password).     
+
+✅ Encryption Example:
+- A client wants to send secure data to a server.
+- The server shares its public key.
+- The client uses the public key to encrypt data.
+- The server uses its private key to decrypt the data.        
+
+This ensures:
+- Only the server (holder of the private key) can read the data.
+- Even if intercepted, the encrypted data is useless without the private key.       
 
 🧑‍💻 Man-in-the-Middle Attack Risk - Even with public/private keys, a hacker could trick you by:
 
@@ -1341,7 +1372,9 @@ Prevents fake servers from impersonating real ones. Your browser (or client) tru
 6) If valid → Secure TLS session starts 🔐
 7) If invalid → ⚠️ Warning (Untrusted Connection)
 
-## TLS certificates in Kubernetes
+---
+
+## 🔏 TLS certificates in Kubernetes
 
 Kubernetes secures internal communication using TLS certificates to ensure confidentiality and trust between components.
 
@@ -1364,6 +1397,8 @@ kubectl create secret tls apiserver-tls \
 ```
 
 Use TLS secrets to mount certificates into pods for secure communication. Kubernetes ensures zero-trust by default, enabling strong authentication and encryption across the cluster.
+
+---
 
 ## 🔑 Authentication & Authorization in Kubernetes
 
