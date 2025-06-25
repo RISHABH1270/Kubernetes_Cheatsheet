@@ -1,4 +1,4 @@
-# 🚀 Dive into Kubernetes with Minikube: Your Ultimate Hands-On Cheatsheet
+# 🚀 Dive into Kubernetes with Minikube: Your Ultimate Hands-On Guide
 
 Welcome to your **beginner-friendly reference guide** for practicing Kubernetes locally using **Minikube**. This cheatsheet is a growing collection of essential commands, architectural insights, and concepts that I’m learning and applying. Updates and deep dives coming soon! 🌱
 
