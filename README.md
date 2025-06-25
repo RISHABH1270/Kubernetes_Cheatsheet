@@ -1577,52 +1577,74 @@ spec:
 
 Kubernetes networking ensures that all Pods, Services, and external clients can communicate reliably. It follows flat networking (vnet), meaning:       
 
-1) Every Pod gets its own IP address (Internal Private IPs).
-2) Pods can communicate with each other directly, across Nodes.
-3) No NAT (Network Address Translation) is required between Pods.
+When a Pod is Created:
+1) The CNI plugin is called (e.g., Calico, Azure CNI).
+2) The CNI assigns an IP, connects the Pod to the virtual network.
+3) CoreDNS helps the Pod resolve other service names. 
 
-🔌 CNI (Container Network Interface) - CNI is how Kubernetes handles Pod networking. When a Pod is created, the Kubelet calls a CNI plugin to set up network interfaces, assign IPs, and connect the Pod to the network. The CNI used depends on the Kubernetes provider—for example,the default one is Coredns and for Azure it uses Azure CNI, which allows full Pod-to-Pod communication by default. Custom CNIs like Calico or Cilium can enforce network policies to restrict traffic.
+Pods and Flat Networking:
+1) Every pod gets a unique internal IP.
+2) All pods can talk to each other without NAT.
+3) Networking is flat like a virtual LAN.
+
+🔌 **CNI (Container Network Interface)** - CNI is how Kubernetes handles Pod networking. When a Pod is created, the Kubelet calls a CNI plugin to set up network interfaces, assign IPs, and connect the Pod to the network. The CNI used depends on the Kubernetes provider—for example,the default one is Coredns and for Azure it uses Azure CNI, which allows full Pod-to-Pod communication by default. Custom CNIs like Calico or Cilium can enforce network policies to restrict traffic.
 
 🛠 What CNI Handles:
 
 1) Pod-to-Pod communication across nodes
-2) IPAM (IP Address Management)
-3) Setting up veth pairs and routing
+2) Assigns IP addresses (IPAM)
+3) Creates veth (virtual ethernet) pairs
 
-Kubernetes Services (L4) - Kubernetes Services expose Pods:
+**Kubernetes Services (L4)** - Kubernetes Services expose Pods:
 
 1) ClusterIP – internal only
 2) NodePort – exposed on each node's IP + port
 3) LoadBalancer – exposes via external LB (cloud-based)
 
-🌉 Ingress (L7 - HTTP/HTTPS routing) - Ingress manages application-layer (L7) traffic routing in Kubernetes, primarily for HTTP and HTTPS. It enables you to expose multiple backend services through a single external IP using routing rules based on hostnames and paths (e.g., /api, /app). Ingress requires an Ingress Controller (e.g., NGINX, Traefik, HAProxy) to function.      
-
+🌉 **Ingress (L7 - HTTP/HTTPS routing)** - Ingress manages application-layer (L7) traffic routing in Kubernetes, primarily for HTTP and HTTPS. It enables you to expose multiple backend services through a single external IP using routing rules based on hostnames and paths (e.g., /api, /app). Ingress requires an Ingress Controller (e.g., NGINX, Traefik, HAProxy) to function.         
 🔁 Ingress Traffic Flow:
 - External client sends an HTTP/HTTPS request to the cluster's Ingress Controller.
 - The Ingress Controller inspects the host and path in the request.
 - Based on defined Ingress rules, it forwards the request to the appropriate backend Service.
 - TLS termination (decrypting HTTPS) and certificate management (e.g., via cert-manager) are typically handled at the Ingress level.
 
+Sample YAML for ingress:
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-ingress
+spec:
+  rules:
+    - host: mysite.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web-service
+                port:
+                  number: 80
+```
+
 🔁 Basic Network Terminology:
 - North-South traffic: Traffic that enters or exits your mesh (e.g., from internet to your cluster or vice versa).
 - East-West traffic: Internal communication between services within the mesh (e.g., microservice A calling microservice B).
 
-🎯 Role of Istio Components:
+**🛡 Istio: Advanced Routing and Security**
 
-1) Ingress Gateway:     
-   - An Istio-managed load balancer that sits at the edge of the mesh.
-   - Handles north-south traffic — i.e., traffic entering the mesh from outside.
-   - Forwards external requests into the appropriate internal services.
-
-3) Egress Gateway -
-   - Handles outbound traffic — from inside the mesh to external services.
-   - Enables fine-grained control over which services can access the outside world, and how.
+Key Istio Components:
+1) Ingress Gateway: Handles incoming (north-south) traffic.
+2) Egress Gateway: Controls outbound internet access.
+3) VirtualService: Handles traffic routing inside mesh.
+4) DestinationRule: Define traffic policies (e.g., load balancing).
 
 ---
 
 ## 🧩 Where Gateway and VirtualService Fit
 
-🛣️ Gateway (Kubernetes + Istio object) : Defines how external traffic enters the mesh via the Ingress Gateway (usually HTTP, HTTPS, TCP). These two Istio resources work together to define how traffic enters and moves within the mesh.
+🛣️ **Gateway (Kubernetes + Istio object)** : Defines how external traffic enters the mesh via the Ingress Gateway (usually HTTP, HTTPS, TCP). These two Istio resources work together to define how traffic enters and moves within the mesh.
 
 It configures the Istio Ingress Gateway, defining ports, protocols, TLS, etc.
 
@@ -1644,7 +1666,7 @@ spec:
         - "myapp.example.com"
 ```
 
-🚏 VirtualService : Defines how traffic is routed once inside the mesh. 
+🚏 **VirtualService** : Defines how traffic is routed once inside the mesh. 
 - Works with Gateway for external traffic, or standalone for internal service-to-service (east-west) traffic.
 - Supports routing rules, retries, fault injection, traffic splitting (canary), etc.
 
@@ -2103,6 +2125,7 @@ kubectl describe pvc redis-pvc
 - Kubernetes binds PVC ↔ PV if size & mode match.
 - Reclaim policy defines behavior after PVC is deleted.
 
+---
 
 ## 🌐 DNS (Domain Name System)
 
@@ -2137,6 +2160,44 @@ There are 13 root DNS servers in the world (named A to M). These are the startin
 
 1) A Record - Maps a domain to an IP address.
 2) CNAME (Canonical Name) - Maps a name to another name (not IP).
+3) NS (Name Server) - Tells which name servers are responsible for the domain.
+4) MX (Mail Exchange) - Defines the mail servers for a domain.
+
+**☁️ Cloudflare DNS and Google DNS**
+
+These are public DNS resolvers — free services that anyone can use.
+
+1) ✅ Google DNS - IPs: 8.8.8.8 and Fast and globally available
+2) Cloudflare DNS - IP: 1.1.1.1 and Focuses on speed and privacy
+
+You can set these DNS servers in your device or router to speed up and secure your browsing.
+ 
+---
+
+## 🧭 DNS in Kubernetes
+
+In a Kubernetes cluster, DNS is critical for service discovery—pods communicate with each other using service names (like my-service) instead of IPs. This is made possible by CoreDNS, the default DNS service running as a pod in the kube-system namespace.      
+
+Without CoreDNS running, pods cannot resolve service names, though they can still reach other pods by IP. Each pod also has a /etc/hosts file that allows it to resolve its own hostname, but not others.      
+
+Previously, Kubernetes used kube-dns, but it’s now deprecated in favor of CoreDNS, which is faster, more modular, and easier to configure. When a service is created, it automatically gets a DNS name like my-service.default.svc.cluster.local, and pods can access it using just my-service if they're in the same namespace.
+
+Check if CoreDNS is running:
+```bash
+kubectl get pods -n kube-system -l k8s-app=kube-dns
+```
+
+Check your pod's DNS setup:
+```bash
+kubectl exec -it <pod-name> -- cat /etc/resolv.conf
+kubectl exec -it <pod-name> -- cat /etc/hosts
+```
+
+Test DNS resolution from a pod:
+```bash
+kubectl exec -it <pod-name> -- nslookup my-service
+kubectl exec -it <pod-name> -- dig my-service.default.svc.cluster.local
+```
 
 
 
