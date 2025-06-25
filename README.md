@@ -1581,7 +1581,7 @@ Kubernetes networking ensures that all Pods, Services, and external clients can 
 2) Pods can communicate with each other directly, across Nodes.
 3) No NAT (Network Address Translation) is required between Pods.
 
-🔌 CNI (Container Network Interface) - CNI is how Kubernetes handles Pod networking. When a Pod is created, the Kubelet calls a CNI plugin to set up network interfaces, assign IPs, and connect the Pod to the network. The CNI used depends on the Kubernetes provider—for example, Azure uses Azure CNI, which allows full Pod-to-Pod communication by default. Custom CNIs like Calico or Cilium can enforce network policies to restrict traffic.
+🔌 CNI (Container Network Interface) - CNI is how Kubernetes handles Pod networking. When a Pod is created, the Kubelet calls a CNI plugin to set up network interfaces, assign IPs, and connect the Pod to the network. The CNI used depends on the Kubernetes provider—for example,the default one is Coredns and for Azure it uses Azure CNI, which allows full Pod-to-Pod communication by default. Custom CNIs like Calico or Cilium can enforce network policies to restrict traffic.
 
 🛠 What CNI Handles:
 
@@ -1669,7 +1669,13 @@ spec:
 
 ---
 
-## ☸️ Kubeadm 
+## ☸️ Kubeadm
+
+Identify Your Deployment Purpose:
+- Proof of Concept (PoC) / Local Development: Use tools such as Minikube or Kind.
+- Managed Kubernetes on Cloud Providers: Options include AKS (Azure Kubernetes Service), EKS (Elastic Kubernetes Service), or GKE (Google Kubernetes Engine).
+- Self-Managed Kubernetes: Deploy on platforms like VirtualBox, cloud-based virtual machines, or on-premises infrastructure using bare metal or VMware.
+
 
 Kubeadm is a tool provided by Kubernetes to bootstrap a production-ready cluster quickly and easily. It automates the setup of critical components like:
 
@@ -1687,16 +1693,450 @@ Kubeadm is a tool provided by Kubernetes to bootstrap a production-ready cluster
 
 You use kubeadm when you want to manually build a Kubernetes cluster (e.g., on VMs, bare metal, or cloud instances) without a fully managed kubernetes services like GKE, EKS, or AKS.
 
+---
+
+## 🛠️☸️ Kubernetes Cluster Setup with kubeadm (3-Node Cloud Setup)
+ 
+🖥️ Infrastructure: 3 VMs (Cloud)
+- 1 Master (Control Plane)
+- 2 Worker Nodes
+
+✅ Prerequisites (All Nodes):
+- Disable swap
+- Update kernel params (iptables, IP forwarding)
+- Install: Container runtime (containerd)
+- Install: runc
+- Install: CNI plugins
+- Install: kubeadm, kubelet, kubectl
+
+🚀 On Master Node:
+- kubeadm init with --pod-network-cidr
+- Setup kubeconfig (.kube/config)
+- Deploy CNI (e.g., Calico)
+
+🔗 On Worker Nodes:
+-Use kubeadm join command from master to join the cluster
+
+#### 🔐 Kubernetes Network Ports and Component Flow :
+
+📌 Control Plane (Master Node):
+| Protocol | Direction | Port Range  | Purpose                    | Used By                     |
+|----------|-----------|-------------|-----------------------------|----------------------------|
+| TCP      | Inbound   | 6443        | Kubernetes API server       | All                        |
+| TCP      | Inbound   | 2379–2380   | etcd server client API      | kube-apiserver, etcd       |
+| TCP      | Inbound   | 10250       | Kubelet API                 | Self, Control plane        |
+| TCP      | Inbound   | 10259       | kube-scheduler              | Self                       |
+| TCP      | Inbound   | 10257       | kube-controller-manager     | Self                       |
+
+📌 Worker node(s)
+| Protocol | Direction | Port Range     | Purpose              | Used By               |
+|----------|-----------|----------------|----------------------|-----------------------|
+| TCP      | Inbound   | 10250          | Kubelet API          | Self, Control plane   |
+| TCP      | Inbound   | 10256          | kube-proxy           | Self, Load balancers  |
+| TCP      | Inbound   | 30000–32767    | NodePort Services    | All                   |
+| UDP      | Inbound   | 30000–32767    | NodePort Services    | All                   |
 
 
+#### ⚙️ Multi-Node Kubernetes Cluster Setup Using Kubeadm (1 CP + 2 Workers)
+
+**Pre-Setup (All Nodes):**
+  
+- Disable Swap
+```bash
+swapoff -a && sudo sed -i '/ swap / s/^/#/' /etc/fsta
+```
+
+- Enable Required Kernel Modules and Sysctl
+```bash
+cat <<EOF | sudo tee /etc/modules-load.d/k8s.conf
+overlay
+br_netfilter
+EOF
+
+sudo modprobe overlay
+sudo modprobe br_netfilter
+
+cat <<EOF | sudo tee /etc/sysctl.d/k8s.conf
+net.bridge.bridge-nf-call-iptables=1
+net.bridge.bridge-nf-call-ip6tables=1
+net.ipv4.ip_forward=1
+EOF
+
+sudo sysctl --system
+```
+
+- Install Container Runtime (containerd):
+```bash
+curl -LO <containerd-tar.gz> && sudo tar Cxzvf /usr/local <tar.gz>
+curl -LO <containerd.service> && sudo mv containerd.service /usr/local/lib/systemd/system/
+
+sudo mkdir -p /etc/containerd
+containerd config default | sudo tee /etc/containerd/config.toml
+
+sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now containerd
+```
+
+- Install Runc and CNI Plugins
+```bash
+# Runc
+curl -LO <runc.amd64>
+sudo install -m 755 runc.amd64 /usr/local/sbin/runc
+
+# CNI Plugins
+curl -LO <cni-plugins.tgz>
+sudo mkdir -p /opt/cni/bin
+sudo tar Cxzvf /opt/cni/bin <cni-plugins.tgz>
+```
+
+- Install Kubernetes Binaries
+```bash
+sudo apt update
+sudo apt install -y apt-transport-https ca-certificates curl gpg
+
+curl -fsSL <key> | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+
+sudo apt update
+sudo apt install -y kubelet=1.29.6-1.1 kubeadm=1.29.6-1.1 kubectl=1.29.6-1.1 --allow-downgrades
+sudo apt-mark hold kubelet kubeadm kubectl
+
+kubeadm version
+kubelet --version
+kubectl version --client
+```
+
+- Configure crictl:
+```bash
+sudo crictl config runtime-endpoint unix:///var/run/containerd/containerd.sock
+```
+
+**🧠 Control Plane Node Only:**
+
+-  Initialize Control Plane by kubeadm:
+```bash
+sudo kubeadm init --pod-network-cidr=192.168.0.0/16 --apiserver-advertise-address=<CP-IP> --node-name master
+```
+
+- Set Up Kubeconfig:
+```bash
+mkdir -p $HOME/.kube
+sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+- Install Calico Network Plugin
+```bash
+kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
+curl -O https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml
+kubectl apply -f custom-resources.yaml
+```
+
+**⚙️ Worker Nodes (Both)**:
+
+Repeat: Disable swap, load modules, install containerd, runc, CNI, kubelet, kubeadm, kubectl
+
+- Join the Cluster: Run the kubeadm join command provided at the end of kubeadm init. It will look like this:
+```bash
+sudo kubeadm join <CP-IP>:6443 \
+  --token <your-token> \
+  --discovery-token-ca-cert-hash sha256:<your-hash>
+```
+
+- You can re-generate it on the control plane with:
+```bash
+kubeadm token create --print-join-command
+```
+
+**✅ Post-Setup Validation**
+
+- All nodes should show Ready status and pods should be running.
+```bash
+kubectl get nodes
+kubectl get pods -A
+```
+
+**📄 Copy Kubeconfig from Master**
+
+To allow kubectl on the worker, copy the admin kubeconfig:
+```bash
+# From the master node:
+scp master-user@<CP-IP>:/etc/kubernetes/admin.conf ~/admin.conf
+
+# On the worker node:
+mkdir -p $HOME/.kube
+mv ~/admin.conf $HOME/.kube/config
+chown $(id -u):$(id -g) $HOME/.kube/config
+```
+
+Now you can run kubectl commands on the worker using the copied kubeconfig.
+
+---
+
+## 🐳 Docker Persistent Storage
+
+📦 Why You Need Persistent Storage:
+- Ephemeral Containers: By default, a container’s writable layer is lost whenever the container is removed or crashes. Anything you mkdir, write, or modify inside / vanishes with the container.
+- Shared Access: Often you want multiple containers (or pods) to read/write the same data, and survive restarts or re-scheduling.
+- Volumes to the Rescue: Docker volumes (and Kubernetes PersistentVolumes) mount a host directory or an external storage backend into the container’s filesystem. The container’s writable layer remains read-only except at the mount point, so your data lives on beyond container lifetimes.
+
+⚙️ Under the Hood: 
+- The storage driver handles writing data inside the container's writable layer, which is ephemeral. To make data persistent across container restarts, a volume driver is used to store data outside the container's lifecycle.
+- Storage Drivers: Docker uses a storage driver to manage the container’s layered filesystem:
+- overlay2 (default on most Linux distros)
+- zfs, btrfs, vfs (less common, advanced use cases)
+
+☁️ Cloud-specific drivers integrate external block/object storage:
+- AWS: EBS, EFS
+- GCP: Persistent Disk
+- Azure: Azure Disk, Blob (via CSI)
+
+**Docker Volume**
+
+Create a volume
+```bash
+docker volume create data_vol
+```
+
+Inspect Available Volumes
+```bash
+docker volume ls
+```
+
+Locate Data on the Host: By default, local volumes live under /var/lib/docker/volumes/
+```bash
+ls /var/lib/docker/volumes/data_vol/_data
+```
+
+Run a Container with the Volume Mounted
+```bash
+docker run -d \
+  --name webapp \
+  -v data_vol:/usr/share/nginx/html \
+  -p 3000:80 \
+  nginx
+```
+
+Verify Persistence:
+```bash
+# Create a test file inside the running container
+docker exec -it webapp bash -c "echo 'Hello, world!' > /usr/share/nginx/html/index.html"
+
+# Restart or remove & recreate the container
+docker rm -f webapp
+docker run -d \
+  --name webapp \
+  -v data_vol:/usr/share/nginx/html \
+  -p 3000:80 \
+  nginx
+
+# The index.html you created is still there:
+curl http://localhost:3000
+# => Hello, world!
+```
+
+Even if the container is destroyed, your data in data_vol remains intact and re-mounted on any new container using the same volume.
+
+**Bind Mounts**
+
+Unlike named volumes (managed by Docker and stored under /var/lib/docker/volumes), bind mounts map a specific directory or file from the host machine directly into the container.
+
+🧠 Key Differences:
+- Bind Mounts use absolute paths on the host.
+- They provide more control and visibility into the underlying data.
+- Changes in the host directory immediately reflect in the container and vice versa.
+- Useful during development or when you need to share config/data/logs with the host.
+
+So -v can be used for bind mounts as well as named volumes. But for clarity and best practice, especially with bind mounts, it’s recommended to use the --mount flag — which is more explicit and readable.
+
+```bash
+# Using shorthand -v (bind mount)
+docker run -v /home/ubuntu/mydata:/usr/share/nginx/html -d -p 8080:80 nginx
+```
+
+```bash
+# Using --mount (recommended for clarity)
+docker run --mount type=bind,source=/home/ubuntu/mydata,target=/usr/share/nginx/html -d -p 8080:80 nginx
+```
+
+--- 
+
+## 📁 Kubernetes Volumes
+
+To preserve data or share data between containers in the Pod, Kubernetes Volumes are used. 
+- Volume Mounts tells the container where to mount the volume inside its filesystem.
+- Volumes defines the source of the storage.
+
+📄 Sample YAML with emptyDir{} - This is a type of volume that is created empty when the Pod is assigned to a Node. It lives as long as the Pod lives. Data is lost if the Pod is deleted (but not if the container inside restarts).
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-pod
+spec:
+  containers:
+    - name: redis
+      image: redis
+      volumeMounts:
+        - name: redis-storage
+          mountPath: /data/redis  # This is where data will be written inside the container
+  volumes:
+    - name: redis-storage
+      emptyDir: {}  # Volume that lives as long as the Pod does
+```
+
+**Persistent Volume (PV)**
+- A cluster resource that represents actual physical storage (e.g., disk, NFS, cloud storage).
+- Created and managed by Storage Admin.
+- Can be pre-provisioned or dynamically provisioned via a StorageClass.
+
+**Persistent Volume Claim (PVC)**
+- A request for storage made by a Pod.
+- Created by Application or K8s Admin.
+- Specifies size, access mode, and optionally a StorageClass.
+
+**StorageClass**
+- Defines how volumes are provisioned dynamically.
+- Includes details like provisioner (e.g., AWS EBS, GCE PD), reclaim policy, volume type, etc.
+
+📘 Real-World Example Flow:
+- Storage admin defines a StorageClass and may pre-create a 100Gi PV (or rely on dynamic provisioning).
+- A developer creates a PVC requesting 10Gi.
+- The PVC is bound to the PV (if available).
+- The remaining 90Gi of the PV is not usable unless using volume expansion or dynamic provisioning.
+- If another PVC requests 150Gi or mismatched access mode, it remains in Pending.
+
+PV Access Modes:
+- ReadWriteOnce (RWO) - Mounted as read-write by a single node
+- ReadOnlyMany (ROX) - Mounted as read-only by many nodes
+- ReadWriteMany (RWX) - Mounted as read-write by many nodes
+- ReadWriteOncePod (RWOP) - Mounted read-write by a single Pod (K8s 1.22+)
+
+Define a StorageClass:
+```yaml
+# storage-class.yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast-storage
+provisioner: kubernetes.io/no-provisioner  # or ebs.csi.aws.com, etc.
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Retain  # Options: Retain, Delete, Recycle
+```
+
+- 🔁 Retain means volume must be manually deleted.
+- 🗑️ Delete auto deletes PV when PVC is deleted.
+- 🔁 Recycle(Deprecated) Tries to clean and reuse PV.
+
+Create Persistent Volume (Manually)
+```yaml
+# pv.yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-100gi
+spec:
+  capacity:
+    storage: 100Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: fast-storage
+  hostPath:
+    path: "/mnt/data"
+```
+
+Create Persistent Volume Claim
+```yaml
+# pvc.yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: fast-storage
+  resources:
+    requests:
+      storage: 10Gi
+```
+
+Use PVC in a Pod
+```yaml
+# pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: redis-pod
+spec:
+  containers:
+    - name: redis
+      image: redis
+      volumeMounts:
+        - name: redis-vol
+          mountPath: /data/redis
+  volumes:
+    - name: redis-vol
+      persistentVolumeClaim:
+        claimName: redis-pvc
+```
+
+🔎 Behavior: Binding & Allocation:
+- Once PVC (10Gi) is created, it binds to PV (100Gi).
+- Now, 90Gi is unused but cannot be reused unless volume supports volume expansion or dynamic slicing.
+- If another PVC requests 150Gi, or a different access mode, it will remain in Pending.
+
+📋 Check State
+```yaml
+kubectl get pv
+kubectl get pvc
+kubectl describe pvc redis-pvc
+```
+
+🧠 Summary
+- Storage Admin: creates PVs or configures StorageClass.
+- K8s Admin/Dev: creates PVCs in workloads.
+- Kubernetes binds PVC ↔ PV if size & mode match.
+- Reclaim policy defines behavior after PVC is deleted.
 
 
+## 🌐 DNS (Domain Name System)
 
+It’s like the phonebook of the internet. DNS helps translate human-readable names into IP addresses — just like saving names for phone numbers in your phone. You type a website like:
+```bash
+www.youtube.com
+```
 
+But computers talk using IP addresses, like:
+```bash
+142.250.64.78
+```
 
+- Domain - A domain is a unique name on the internet. Example: google.com → domain
+- Subdomain - A subdomain is a smaller part of a domain. Example: www.google.com
 
+**🧭 DNS Resolution (Step-by-Step)**
 
+When you type www.google.com, here's what happens:
+1) Your browser checks if it already knows the IP.
+2) If not, it asks your DNS resolver (like Cloudflare or Google DNS).
+3) That resolver asks the root server (one of the 13).
+4) The root replies: “Ask the .com server.”
+5) .com server replies: “Ask google.com's nameserver.”
+6) Google’s nameserver replies with the IP address.
+7) Your browser connects to that IP.
+8) 💡 All this happens in milliseconds!
 
+There are 13 root DNS servers in the world (named A to M). These are the starting point for all DNS lookups. They know where to find Top-Level Domains (TLDs) like .com, .org, .net, etc. They don’t know IP addresses of websites directly, but they know where to look next.
+
+**🗂️ DNS Records Explained**
+
+1) A Record - Maps a domain to an IP address.
+2) CNAME (Canonical Name) - Maps a name to another name (not IP).
 
 
 
