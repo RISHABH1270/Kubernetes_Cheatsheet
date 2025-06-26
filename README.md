@@ -2168,7 +2168,7 @@ There are 13 root DNS servers in the world (named A to M). These are the startin
 These are public DNS resolvers — free services that anyone can use.
 
 1) ✅ Google DNS - IPs: 8.8.8.8 and Fast and globally available
-2) Cloudflare DNS - IP: 1.1.1.1 and Focuses on speed and privacy
+2) ✅ Cloudflare DNS - IP: 1.1.1.1 and Focuses on speed and privacy
 
 You can set these DNS servers in your device or router to speed up and secure your browsing.
  
@@ -2199,6 +2199,115 @@ kubectl exec -it <pod-name> -- nslookup my-service
 kubectl exec -it <pod-name> -- dig my-service.default.svc.cluster.local
 ```
 
+---
+
+## 🚀 How to Upgrade a Multi-Node Kubernetes Cluster (Step-by-Step)
+
+**🔄 Why Upgrade?**
+- New Kubernetes releases bring features, bug fixes, and security patches.
+- Only the 3 most recent minor versions are officially supported.
+- For example, if the current version is v1.31.x, then only v1.31.x, v1.30.x, and v1.29.x are supported. Anything older is end-of-life (no patches) will gone come. It will still work but not "recommendable".
+
+
+**🔢 Semantic Versioning in Kubernetes**
+- Kubernetes follows the format: MAJOR.MINOR.PATCH
+- You can only upgrade one minor version at a time.
+- Allowed: v1.28.x → v1.29.x
+- Not Allowed: v1.28.x → v1.30.x
+
+**🛠 Upgrade Flow Overview**
+- Primary Control Plane Node (first to upgrade)
+- Other Control Plane Nodes 
+- Worker Nodes (one by one)   
+
+💡 A LoadBalancer or virtual IP is used to balance requests across control plane nodes. That’s why you can safely upgrade them one at a time.
+
+**⚙️ Commands for Worker Node Upgrade**
+
+1) Drain the Node:
+```bash
+kubectl drain worker1 --ignore-daemonsets --delete-emptydir-data
+```
+- drain: Evicts pods from the node.
+- cordon: Automatically marks node as unschedulable.
+- If pods are part of a Deployment, they get re-created on another node.
+- If pods are standalone (no controller), they are deleted.
+
+2) Upgrade Kubelet and Kubeadm on Node:
+```bash
+# Upgrade kubeadm to match new control plane version
+sudo apt-get install -y kubeadm=1.29.3-00
+
+# Verify plan
+sudo kubeadm upgrade node
+
+# Upgrade kubelet
+sudo apt-get install -y kubelet=1.29.3-00
+
+# Restart kubelet
+sudo systemctl restart kubelet
+```
+
+3) Uncordon the Node:
+```bash
+kubectl uncordon worker1
+```
+
+- Node is now schedulable again.
+- Pods can be placed back on it.
+
+**🔁 Upgrade Strategies**
+| Strategy        | Description                                                                |
+|-----------------|----------------------------------------------------------------------------|
+| All at Once     | Upgrade all nodes together (risky for production).                         |
+| Rolling Update  | One node at a time, maintains high availability (recommended).             |
+| Blue-Green      | Bring up new upgraded nodes, test, and switch traffic, then delete old.    |
+
+---
+
+## 💾 ETCD Backup And Restore
+
+- etcd is the central database for Kubernetes.
+- It stores all cluster state: nodes, namespaces, pods, ConfigMaps, Secrets, service accounts, etc.
+- It’s a key-value store used by the Kubernetes control plane (specifically the API server).
+
+Misconception: Does kubectl get all -A -o yaml > backup.yaml back up everything?      
+- ❌ No, it only backs up resource configurations (like Deployments, Services, etc.) — not the full cluster state.
+- It does not back up: Cluster metadata, Secrets securely, Internal Kubernetes objects, Pod data (e.g., files inside volumes).
+
+**Real Backup: Use ETCD Snapshot**
+
+If you're managing your own Kubernetes cluster (e.g., via kubeadm), you have direct access to ETCD and can take full snapshots:
+```bash
+# Backup ETCD (Run on Control Plane node)
+# This command saves a complete snapshot of the cluster’s state to /backup/etcd-snapshot.db.
+ETCDCTL_API=3 etcdctl snapshot save /backup/etcd-snapshot.db \
+  --endpoints=https://127.0.0.1:2379 \
+  --cacert=/etc/kubernetes/pki/etcd/ca.crt \
+  --cert=/etc/kubernetes/pki/etcd/server.crt \
+  --key=/etc/kubernetes/pki/etcd/server.key
+```
+
+To restore:
+```bash
+ETCDCTL_API=3 etcdctl snapshot restore /backup/etcd-snapshot.db \
+  --data-dir /var/lib/etcd-from-backup
+```
+
+🔁 You’ll need to reconfigure the kube-apiserver to point to this restored directory if you're doing a full cluster restore.
+
+**☁️ What if You're Using Managed Kubernetes (like EKS, AKS, GKE)?**   
+- You do not have direct access to ETCD.
+- Instead, use: Velero – a tool to back up and restore Kubernetes resources and volumes. Cloud provider’s native backup tools (e.g., AWS Backup for EKS).
+```bash
+# Velero CLI example
+velero backup create my-cluster-backup --include-namespaces default
+```
+
+📦 What About Pod Data?
+- ETCD does not store application data inside pods (like uploaded files, DB data).
+- That data is in Volumes (e.g., emptyDir, hostPath, PersistentVolume).
+- You must back up Persistent Volumes separately (using Velero or volume snapshots).
 
 
 
