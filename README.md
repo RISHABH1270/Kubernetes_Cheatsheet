@@ -42,7 +42,7 @@ These nodes run the actual containerized workloads — your apps live here.
 
 **Key Components:**
 
-- **`kubelet`** – An agent on each node that ensures containers are running as instructed by the control plane.
+- **`kubelet`** – An agent on each node that ensures containers are running as instructed by the control plane. Pod management at node level.
 - **`kube-proxy`** – Manages pod networking, routing, and communication.
 - **`Container Runtime`** – Runs containers (e.g., `containerd`, `CRI-O`, or `Docker`).
 - **`Pods`** – The smallest deployable units in Kubernetes, containing your app containers.
@@ -109,6 +109,40 @@ minikube delete
 ```bash
 minikube delete --all
 ```
+---
+
+## 📝 Set kube-config file as environment variable
+
+This sets an environment variable called KUBECONFIG to point to your Kubernetes configuration file (by default located at $HOME/.kube/config).
+```bash
+export KUBECONFIG=$HOME/.kube/config
+```
+
+This file contains:
+- cluster details (API server endpoint, cluster certificate)
+- user credentials (certs or tokens)
+- contexts (which cluster + user to use by default)
+
+By exporting this variable, you tell kubectl (and other tools that use the Kubernetes client-go libraries) to use this configuration file for all subsequent commands.     
+
+You might want to switch quickly between multiple clusters by pointing KUBECONFIG to different files.So by running you explicitly tell kubectl which config file to use.
+```bash
+export KUBECONFIG=/path/to/your/config
+```
+
+⚡ Example with multiple configs, Imagine you have:
+- ~/.kube/config for your dev cluster
+- ~/eks-config for your production EKS cluster
+```bash
+# Work on dev cluster
+export KUBECONFIG=~/.kube/config
+kubectl get nodes
+
+# Now switch to EKS
+export KUBECONFIG=~/eks-config
+kubectl get nodes
+```
+
 ---
 
 ## 🖥️ Get all the Nodes in the cluster
@@ -2308,6 +2342,32 @@ velero backup create my-cluster-backup --include-namespaces default
 - ETCD does not store application data inside pods (like uploaded files, DB data).
 - That data is in Volumes (e.g., emptyDir, hostPath, PersistentVolume).
 - You must back up Persistent Volumes separately (using Velero or volume snapshots).
+
+## 👀 Kubernetes Logging and Monitoring
+
+By default, Kubernetes does not provide logging and monitoring. To expose metrics like CPU and memory utilization, we enable the Metrics Server, which is a CNCF project.
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+```
+
+We get the logs of the pod. From there, you can redirect these logs to Splunk, Fluent Bit, or any third-party tool for centralized logging.
+```bash
+kubectl logs <pod-name>
+```
+
+So when the kubectl command stops working, it usually means that the API server is not listening on its port. In such cases, we troubleshoot the problem at the container level because we know that the API server itself runs as a static pod. By default, Kubernetes uses containerd as the container runtime (not Docker). So instead of using docker ps, we use crictl ps to inspect the running containers. The issue might be due to image pulling failures or problems starting the API server container.
+```bash
+# Check running containers when API server is not responding
+crictl ps
+```
+
+## 🔬 Advanced Kubectl Commands
+
+So when you run kubectl get nodes, kubectl sends a GET request to the API server. The API server responds with a JSON payload, which kubectl then converts into a human-readable format. When we need additional details, such as specific properties, we can look directly at the raw JSON payload.
+```bash
+kubectl run nginx --image=nginx:latest --dry-run=client -o json > pod.json
+kubectl run nginx --image=nginx:latest --dry-run=client -o json > pod.yaml
+```
 
 
 
